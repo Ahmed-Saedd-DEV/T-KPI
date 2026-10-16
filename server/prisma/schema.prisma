@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum ImportBatchStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  BATCH_DELETE
+}
+
+model Employee {
+  id          String   @id @default(uuid()) @db.Uuid
+  employeeCode String  @unique
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User?   @relation("EmployeeUser")
+  performances EmployeePerformance[] @relation("EmployeePerformanceRecords")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  employeeId   String?  @unique @db.Uuid
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee         Employee?          @relation("EmployeeUser", fields: [employeeId], references: [id], onDelete: SetNull)
+  uploadedBatches  ImportBatch[]      @relation("UploadedByUser")
+  createdMetrics   BranchDailyMetric[] @relation("CreatedMetrics")
+  updatedMetrics   BranchDailyMetric[] @relation("UpdatedMetrics")
+  auditLogs        AuditLog[]         @relation("ActorUser")
+}
+
+model ImportBatch {
+  id          String            @id @default(uuid()) @db.Uuid
+  fileName    String
+  periodStart DateTime
+  periodEnd   DateTime
+  status      ImportBatchStatus
+  uploadedById String           @db.Uuid
+  createdAt   DateTime          @default(now())
+
+  uploadedBy  User              @relation("UploadedByUser", fields: [uploadedById], references: [id], onDelete: Restrict)
+  performances EmployeePerformance[] @relation("BatchPerformanceRecords")
+
+  @@index([uploadedById, createdAt])
+  @@index([periodStart, periodEnd])
+}
+
+model EmployeePerformance {
+  id            String   @id @default(uuid()) @db.Uuid
+  employeeId    String   @db.Uuid
+  importBatchId String   @db.Uuid
+  periodStart   DateTime
+  periodEnd     DateTime
+  orders        Int
+  opsCR         Decimal  @db.Decimal(10, 3)
+  dispatchTime  Decimal  @db.Decimal(10, 3)
+  pickingTime   Decimal  @db.Decimal(10, 3)
+  assignmentTime Decimal @db.Decimal(10, 3)
+  prepTime      Decimal  @db.Decimal(10, 3)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employee    Employee    @relation("EmployeePerformanceRecords", fields: [employeeId], references: [id], onDelete: Restrict)
+  importBatch ImportBatch @relation("BatchPerformanceRecords", fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, periodStart, periodEnd])
+  @@index([periodStart, periodEnd])
+  @@index([importBatchId])
+}
+
+model BranchDailyMetric {
+  id            String   @id @default(uuid()) @db.Uuid
+  metricDate    DateTime @db.Date @unique
+  opsCR         Decimal  @db.Decimal(10, 3)
+  dispatchTime  Decimal  @db.Decimal(10, 3)
+  prepTime      Decimal  @db.Decimal(10, 3)
+  assignmentTime Decimal @db.Decimal(10, 3)
+  createdById   String   @db.Uuid
+  updatedById   String?  @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdBy User @relation("CreatedMetrics", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User? @relation("UpdatedMetrics", fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  actorUserId   String?     @db.Uuid
+  actorSnapshot Json?
+  action        AuditAction
+  entityType    String
+  entityId      String
+  beforeData    Json?
+  afterData     Json?
+  createdAt     DateTime    @default(now())
+
+  actorUser User? @relation("ActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}

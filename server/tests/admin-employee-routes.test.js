@@ -1,0 +1,1126 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const express = require("express");
+const jwt = require("jsonwebtoken");
+
+const prisma = require("../src/prisma/prismaClient");
+const adminEmployeeRoutes = require("../src/routes/admins/employeeAdminRoutes");
+const employeeRoutes = require("../src/routes/employees/employeeRoutes");
+const errorHandler = require("../src/middleware/errorHandler");
+
+const originalJwtSecret = process.env.JWT_SECRET;
+const originalUserFindUnique = prisma.user.findUnique.bind(prisma.user);
+const originalEmployeeCreate = prisma.employee.create.bind(prisma.employee);
+const originalEmployeeFindMany = prisma.employee.findMany.bind(prisma.employee);
+const originalEmployeeFindUnique = prisma.employee.findUnique.bind(
+  prisma.employee,
+);
+const originalEmployeeDelete = prisma.employee.delete.bind(prisma.employee);
+const originalEmployeePerformanceDeleteMany =
+  prisma.employeePerformance.deleteMany.bind(prisma.employeePerformance);
+const originalAuditLogCreate = prisma.auditLog.create.bind(prisma.auditLog);
+const originalTransaction = prisma.$transaction.bind(prisma);
+
+function makeToken(userId) {
+  return jwt.sign({ sub: userId }, process.env.JWT_SECRET, {
+    algorithm: "HS256",
+    expiresIn: "8h",
+  });
+}
+
+function buildApp() {
+  const app = express();
+  app.use(express.json());
+  app.use("/admin", adminEmployeeRoutes);
+  app.use("/employees", employeeRoutes);
+  app.use(errorHandler);
+  return app;
+}
+
+async function request(app, path, { method = "GET", body, headers = {} } = {}) {
+  const server = app.listen(0);
+
+  try {
+    const address = server.address();
+    const response = await fetch(`http://127.0.0.1:${address.port}${path}`, {
+      method,
+      headers: {
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...headers,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    const raw = await response.text();
+    let json = null;
+
+    if (raw) {
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        json = raw;
+      }
+    }
+
+    return {
+      status: response.status,
+      body: json,
+      text: raw,
+    };
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
+}
+
+test.beforeEach(() => {
+  process.env.JWT_SECRET = "1234567890abcdefghijklmnopqrstuvwxyz1234567890";
+  prisma.user.findUnique = async ({ where }) => {
+    if (!where || !where.id) {
+      return null;
+    }
+
+    return {
+      id: where.id,
+      email: "test@example.com",
+      role: "USER",
+      isActive: true,
+    };
+  };
+  prisma.employee.create = async ({ data }) => ({
+    id: "emp-001",
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+  prisma.employee.findMany = async () => [
+    {
+      id: "emp-001",
+      employeeCode: "EMP-100",
+      name: "Alice",
+      createdAt: new Date().toISOString(),
+      performances: [],
+    },
+  ];
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where && where.employeeCode === "EMP-100") {
+      return {
+        id: "emp-001",
+        employeeCode: "EMP-100",
+        name: "Alice",
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    if (where && where.id === "123e4567-e89b-12d3-a456-426614174000") {
+      return {
+        id: "123e4567-e89b-12d3-a456-426614174000",
+        employeeCode: "EMP-100",
+        name: "Alice",
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+});
+
+test.afterEach(() => {
+  process.env.JWT_SECRET = originalJwtSecret;
+  prisma.user.findUnique = originalUserFindUnique;
+  prisma.employee.create = originalEmployeeCreate;
+  prisma.employee.findMany = originalEmployeeFindMany;
+  prisma.employee.findUnique = originalEmployeeFindUnique;
+  prisma.employee.delete = originalEmployeeDelete;
+  prisma.employeePerformance.deleteMany = originalEmployeePerformanceDeleteMany;
+  prisma.auditLog.create = originalAuditLogCreate;
+  prisma.$transaction = originalTransaction;
+});
+
+test("POST /admin/employees rejects missing or invalid bearer tokens", async () => {
+  const app = buildApp();
+
+  const noToken = await request(app, "/admin/employees", {
+    method: "POST",
+    body: { employeeCode: "EMP-101", name: "Bob" },
+  });
+
+  assert.equal(noToken.status, 401);
+
+  const invalidToken = await request(app, "/admin/employees", {
+    method: "POST",
+    body: { employeeCode: "EMP-101", name: "Bob" },
+    headers: {
+      Authorization: "Bearer invalid-token",
+    },
+  });
+
+  assert.equal(invalidToken.status, 401);
+});
+
+test("POST /admin/employees rejects authenticated USER with 403", async () => {
+  const app = buildApp();
+  const userId = "user-1";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "user@example.com",
+        role: "USER",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, "/admin/employees", {
+    method: "POST",
+    body: { employeeCode: "EMP-101", name: "Bob" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 403);
+  assert.equal(result.body.message, "Forbidden");
+});
+
+test("POST /admin/employees creates employee for ADMIN", async () => {
+  const app = buildApp();
+  const userId = "admin-1";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.create = async ({ data }) => ({
+    id: "emp-002",
+    employeeCode: data.employeeCode,
+    name: data.name,
+    createdAt: new Date().toISOString(),
+  });
+
+  const token = makeToken(userId);
+  const result = await request(app, "/admin/employees", {
+    method: "POST",
+    body: { employeeCode: "EMP-101", name: "Bob" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 201);
+  assert.equal(result.body.employeeCode, "EMP-101");
+  assert.equal(result.body.name, "Bob");
+});
+
+test("POST /admin/employees rejects duplicate employeeCode with 409", async () => {
+  const app = buildApp();
+  const userId = "admin-2";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.create = async () => {
+    const error = new Error("duplicate key");
+    error.code = "P2002";
+    throw error;
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, "/admin/employees", {
+    method: "POST",
+    body: { employeeCode: "EMP-100", name: "Alice" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 409);
+  assert.equal(result.body.message, "Employee code already exists");
+});
+
+test("POST /admin/employees rejects missing or invalid required fields with 400", async () => {
+  const app = buildApp();
+  const userId = "admin-3";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+
+  const token = makeToken(userId);
+  const invalidBodies = [
+    {},
+    { employeeCode: "", name: "Bob" },
+    { employeeCode: "EMP-101", name: "" },
+    { employeeCode: 123, name: "Bob" },
+    { employeeCode: "EMP-101", name: 123 },
+  ];
+
+  for (const body of invalidBodies) {
+    const result = await request(app, "/admin/employees", {
+      method: "POST",
+      body,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(
+      result.status,
+      400,
+      `Expected 400 for ${JSON.stringify(body)}`,
+    );
+  }
+});
+
+test("GET /employees remains authenticated and route ordering stays distinct from /admin", async () => {
+  const app = buildApp();
+  const userId = "user-2";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "user@example.com",
+        role: "USER",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  const token = makeToken(userId);
+
+  const employees = await request(app, "/employees", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(employees.status, 200);
+  assert.ok(Array.isArray(employees.body));
+
+  const employeeByCode = await request(app, "/employees/code/EMP-100", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(employeeByCode.status, 200);
+  assert.equal(employeeByCode.body.employeeCode, "EMP-100");
+
+  const employeeById = await request(
+    app,
+    "/employees/123e4567-e89b-12d3-a456-426614174000",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  assert.equal(employeeById.status, 200);
+  assert.equal(employeeById.body.id, "123e4567-e89b-12d3-a456-426614174000");
+
+  const adminFallback = await request(app, "/admin/employees", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(adminFallback.status, 404);
+});
+
+test("PATCH /admin/employees/:id rejects missing or invalid bearer tokens", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174000";
+
+  const withoutToken = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { name: "Updated Name" },
+  });
+
+  assert.equal(withoutToken.status, 401);
+
+  const invalidToken = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { name: "Updated Name" },
+    headers: {
+      Authorization: "Bearer invalid-token",
+    },
+  });
+
+  assert.equal(invalidToken.status, 401);
+});
+
+test("PATCH /admin/employees/:id rejects authenticated USER with 403", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174000";
+  const userId = "user-3";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "user@example.com",
+        role: "USER",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { name: "Updated Name" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 403);
+  assert.equal(result.body.message, "Forbidden");
+});
+
+test("PATCH /admin/employees/:id updates both fields for ADMIN", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174000";
+  const userId = "admin-10";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-100",
+        name: "Alice",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.update = async ({ where, data }) => ({
+    id: where.id,
+    employeeCode: data.employeeCode ?? "EMP-100",
+    name: data.name ?? "Alice",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { employeeCode: "EMP-200", name: "Updated Name" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.employeeCode, "EMP-200");
+  assert.equal(result.body.name, "Updated Name");
+});
+
+test("PATCH /admin/employees/:id updates only name for ADMIN", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174001";
+  const userId = "admin-11";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-300",
+        name: "Alice",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.update = async ({ data }) => ({
+    id: employeeId,
+    employeeCode: "EMP-300",
+    name: data.name,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { name: "  Bob  " },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.name, "Bob");
+  assert.equal(result.body.employeeCode, "EMP-300");
+});
+
+test("PATCH /admin/employees/:id updates only employeeCode for ADMIN", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174002";
+  const userId = "admin-12";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-400",
+        name: "Cara",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.update = async ({ data }) => ({
+    id: employeeId,
+    employeeCode: data.employeeCode,
+    name: "Cara",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { employeeCode: "  EMP-401  " },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.employeeCode, "EMP-401");
+  assert.equal(result.body.name, "Cara");
+});
+
+test("PATCH /admin/employees/:id returns 404 for missing employee", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174003";
+  const userId = "admin-13";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async () => null;
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { name: "New Name" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 404);
+  assert.equal(result.body.message, "Employee not found");
+});
+
+test("PATCH /admin/employees/:id rejects duplicate employeeCode belonging to another employee with 409", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174004";
+  const userId = "admin-14";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-500",
+        name: "Alice",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    if (where.employeeCode === "EMP-999") {
+      return {
+        id: "123e4567-e89b-12d3-a456-426614174099",
+        employeeCode: "EMP-999",
+        name: "Other",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.update = async () => {
+    const error = new Error("duplicate key");
+    error.code = "P2002";
+    throw error;
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { employeeCode: "EMP-999" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 409);
+  assert.equal(result.body.message, "Employee code already exists");
+});
+
+test("PATCH /admin/employees/:id allows same employeeCode for same employee", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174005";
+  const userId = "admin-15";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-600",
+        name: "Dana",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    if (where.employeeCode === "EMP-600") {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-600",
+        name: "Dana",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.update = async ({ data }) => ({
+    id: employeeId,
+    employeeCode: data.employeeCode,
+    name: data.name ?? "Dana",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "PATCH",
+    body: { employeeCode: "EMP-600" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.employeeCode, "EMP-600");
+});
+
+test("PATCH /admin/employees/:id rejects empty body and protected/invalid fields with 400", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174006";
+  const userId = "admin-16";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-700",
+        name: "Eve",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+
+  const token = makeToken(userId);
+  const invalidBodies = [
+    {},
+    { name: "   " },
+    { employeeCode: "   " },
+    { employeeCode: 123 },
+    { name: 123 },
+    { id: employeeId },
+    { createdAt: "2024-01-01" },
+    { updatedAt: "2024-01-01" },
+    { invalidField: "bad" },
+    { employeeCode: "EMP-701", name: "", extra: true },
+  ];
+
+  for (const body of invalidBodies) {
+    const result = await request(app, `/admin/employees/${employeeId}`, {
+      method: "PATCH",
+      body,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(
+      result.status,
+      400,
+      `Expected 400 for ${JSON.stringify(body)}`,
+    );
+  }
+});
+
+test("DELETE /admin/employees/:id rejects missing or invalid bearer tokens", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174100";
+
+  const withoutToken = await request(app, `/admin/employees/${employeeId}`, {
+    method: "DELETE",
+  });
+
+  assert.equal(withoutToken.status, 401);
+
+  const invalidToken = await request(app, `/admin/employees/${employeeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: "Bearer invalid-token",
+    },
+  });
+
+  assert.equal(invalidToken.status, 401);
+});
+
+test("DELETE /admin/employees/:id rejects authenticated USER with 403", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174101";
+  const userId = "user-4";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "user@example.com",
+        role: "USER",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 403);
+  assert.equal(result.body.message, "Forbidden");
+});
+
+test("DELETE /admin/employees/:id deletes employee and target performance rows for ADMIN", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174102";
+  const userId = "admin-20";
+  const targetPerformanceRows = [{ id: "perf-1", employeeId: employeeId }];
+  const otherPerformanceRows = [
+    { id: "perf-2", employeeId: "123e4567-e89b-12d3-a456-426614174900" },
+  ];
+  let auditEntry = null;
+
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-DEL-1",
+        name: "Delete Me",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.employeePerformance.deleteMany = async ({ where }) => {
+    assert.equal(where.employeeId, employeeId);
+    return { count: targetPerformanceRows.length };
+  };
+  prisma.employee.delete = async ({ where }) => {
+    assert.equal(where.id, employeeId);
+    return {
+      id: employeeId,
+      employeeCode: "EMP-DEL-1",
+      name: "Delete Me",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  };
+  prisma.auditLog.create = async ({ data }) => {
+    auditEntry = data;
+    return { ...data, id: "audit-001", createdAt: new Date().toISOString() };
+  };
+  prisma.$transaction = async (callback) => {
+    const tx = {
+      employeePerformance: {
+        deleteMany: async ({ where }) => {
+          assert.equal(where.employeeId, employeeId);
+          return { count: targetPerformanceRows.length };
+        },
+      },
+      employee: {
+        delete: async ({ where }) => {
+          assert.equal(where.id, employeeId);
+          return {
+            id: employeeId,
+            employeeCode: "EMP-DEL-1",
+            name: "Delete Me",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+        },
+      },
+      auditLog: {
+        create: async ({ data }) => {
+          auditEntry = data;
+          return {
+            ...data,
+            id: "audit-001",
+            createdAt: new Date().toISOString(),
+          };
+        },
+      },
+    };
+
+    return callback(tx);
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 204);
+  assert.equal(result.text, "");
+  assert.equal(result.body, null);
+  assert.ok(auditEntry);
+  assert.equal(auditEntry.action, "DELETE");
+  assert.equal(auditEntry.entityType, "Employee");
+  assert.equal(auditEntry.entityId, employeeId);
+  assert.deepEqual(auditEntry.beforeData.id, employeeId);
+  assert.deepEqual(auditEntry.actorUserId, userId);
+  assert.deepEqual(auditEntry.actorSnapshot, {
+    id: userId,
+    email: "admin@example.com",
+    role: "ADMIN",
+  });
+  assert.deepEqual(otherPerformanceRows, otherPerformanceRows);
+});
+
+test("DELETE /admin/employees/:id returns 404 for missing employee", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174103";
+  const userId = "admin-21";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async () => null;
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 404);
+  assert.equal(result.body.message, "Employee not found");
+});
+
+test("DELETE /admin/employees/:id returns 400 for invalid UUID format", async () => {
+  const app = buildApp();
+  const userId = "admin-22";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, "/admin/employees/not-a-valid-id", {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 400);
+  assert.equal(result.body.message, "Invalid employee id");
+});
+
+test("DELETE /admin/employees/:id does not delete other employees' performance records or ImportBatch rows", async () => {
+  const app = buildApp();
+  const targetEmployeeId = "123e4567-e89b-12d3-a456-426614174104";
+  const otherEmployeeId = "123e4567-e89b-12d3-a456-426614174105";
+  const userId = "admin-23";
+
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === targetEmployeeId) {
+      return {
+        id: targetEmployeeId,
+        employeeCode: "EMP-KEEP-ONE",
+        name: "Delete Target",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.$transaction = async (callback) => {
+    const tx = {
+      employeePerformance: {
+        deleteMany: async ({ where }) => {
+          assert.equal(where.employeeId, targetEmployeeId);
+          return { count: 2 };
+        },
+      },
+      employee: {
+        delete: async ({ where }) => {
+          assert.equal(where.id, targetEmployeeId);
+          return { id: targetEmployeeId };
+        },
+      },
+      auditLog: {
+        create: async ({ data }) => ({
+          id: "audit-keep",
+          ...data,
+          createdAt: new Date().toISOString(),
+        }),
+      },
+    };
+
+    return callback(tx);
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${targetEmployeeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(result.status, 204);
+  assert.equal(result.body, null);
+  assert.notEqual(otherEmployeeId, targetEmployeeId);
+});
+
+test("DELETE /admin/employees/:id fails transactionally without reporting a successful delete", async () => {
+  const app = buildApp();
+  const employeeId = "123e4567-e89b-12d3-a456-426614174106";
+  const userId = "admin-24";
+  let auditCalled = false;
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "admin@example.com",
+        role: "ADMIN",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+  prisma.employee.findUnique = async ({ where }) => {
+    if (where.id === employeeId) {
+      return {
+        id: employeeId,
+        employeeCode: "EMP-FAIL",
+        name: "Fail Delete",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  };
+  prisma.auditLog.create = async () => {
+    auditCalled = true;
+    return { id: "audit-fail", action: "DELETE" };
+  };
+  prisma.$transaction = async () => {
+    const error = new Error("transaction failed");
+    error.code = "P2025";
+    throw error;
+  };
+
+  const token = makeToken(userId);
+  const result = await request(app, `/admin/employees/${employeeId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(auditCalled, false);
+  assert.equal(result.status, 404);
+  assert.equal(result.body.message, "Employee not found");
+});

@@ -1,0 +1,46 @@
+require("dotenv").config();
+
+const express = require("express");
+const prisma = require("./prisma/prismaClient");
+const AppError = require("./utils/AppError");
+const errorHandler = require("./middleware/errorHandler");
+const authRoutes = require("./routes/auth/authRoutes");
+const employeeRoutes = require("./routes/employees/employeeRoutes");
+const importRoutes = require("./routes/import/importRoutes");
+const branchMetricRoutes = require("./routes/metrics/branchMetricRoutes");
+const adminEmployeeRoutes = require("./routes/admins/employeeAdminRoutes");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Talabat KPI API is running",
+  });
+});
+
+app.get("/health", async (req, res, next) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({
+      status: "ok",
+      database: "connected",
+    });
+  } catch (error) {
+    next(new AppError("Database unavailable", 503, false));
+  }
+});
+
+app.use("/auth", authRoutes);
+app.use("/admin/import", importRoutes);
+app.use("/admin/metrics/daily", branchMetricRoutes);
+app.use("/admin", adminEmployeeRoutes);
+app.use("/employees", employeeRoutes);
+
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
