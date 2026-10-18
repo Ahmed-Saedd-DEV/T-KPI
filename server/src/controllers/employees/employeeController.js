@@ -10,6 +10,15 @@ async function getEmployees(req, res, next) {
   }
 }
 
+async function getTopEmployees(req, res, next) {
+  try {
+    const result = await employeeListService.getTopEmployees();
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getEmployeeById(req, res, next) {
   try {
     const employee = await employeeService.getEmployeeById(req.params.id);
@@ -32,6 +41,7 @@ async function getEmployeeByCode(req, res, next) {
 
 module.exports = {
   getEmployees,
+  getTopEmployees,
   getEmployeeById,
   getEmployeeByCode,
 };

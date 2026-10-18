@@ -145,4 +145,61 @@ async function getEmployeeList(query = {}) {
   return results;
 }
 
-module.exports = { getEmployeeList };
+async function getTopEmployees() {
+  const employees = await prisma.employee.findMany({
+    include: {
+      performances: {
+        orderBy: { periodStart: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  const rankedEmployees = employees
+    .map((employee) => {
+      const latestPerformance = employee.performances[0];
+
+      if (!latestPerformance) {
+        return null;
+      }
+
+      const metrics = {
+        opsCR: Number(latestPerformance.opsCR),
+        dispatchTime: Number(latestPerformance.dispatchTime),
+        pickingTime: Number(latestPerformance.pickingTime),
+        assignmentTime: Number(latestPerformance.assignmentTime),
+        prepTime: Number(latestPerformance.prepTime),
+      };
+
+      const kpi = calculateKpiScore(metrics);
+
+      return {
+        employeeId: employee.id,
+        employeeCode: employee.employeeCode,
+        name: employee.name,
+        overallScore: kpi.overallScore,
+        scores: kpi.scores,
+        lastPeriod: new Date(latestPerformance.periodStart)
+          .toISOString()
+          .slice(0, 10),
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        (Number(b.overallScore) || -Infinity) -
+        (Number(a.overallScore) || -Infinity),
+    )
+    .slice(0, 3)
+    .map((employee, index) => ({
+      rank: index + 1,
+      ...employee,
+    }));
+
+  return {
+    status: "success",
+    data: rankedEmployees,
+  };
+}
+
+module.exports = { getEmployeeList, getTopEmployees };

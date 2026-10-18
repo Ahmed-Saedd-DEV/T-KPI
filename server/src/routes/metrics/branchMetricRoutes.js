@@ -25,6 +25,8 @@ router.get(
   branchMetricController.getDailyMetrics,
 );
 
+router.get("/best", auth, branchMetricController.getBestDay);
+
 router.get(
   "/:date",
   auth,

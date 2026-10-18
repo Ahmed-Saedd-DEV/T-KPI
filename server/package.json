@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --test tests/admin-employee-routes.test.js",
+    "test": "node --test tests/*.test.js",
     "start": "node src/main.js",
     "bootstrap:admin": "node scripts/bootstrap-admin.js"
   },
@@ -21,7 +21,9 @@
     "exceljs": "^4.4.0",
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^2.4.0"
+    "multer": "^2.4.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "prisma": "^6.19.3"

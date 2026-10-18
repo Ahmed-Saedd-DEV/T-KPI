@@ -181,10 +181,106 @@ async function deleteDailyMetric(dateStr, actor) {
   }
 }
 
+function calculateBestDayScore(record) {
+  const targets = {
+    opsCR: 1,
+    dispatchTime: 7,
+    assignmentTime: 0.3,
+    prepTime: 2,
+  };
+
+  const score = {
+    overall: 0,
+    opsCR: 0,
+    dispatchTime: 0,
+    assignmentTime: 0,
+    prepTime: 0,
+  };
+
+  const validScores = [];
+
+  for (const [metric, target] of Object.entries(targets)) {
+    const actual = Number(record[metric]);
+
+    if (!Number.isFinite(actual) || actual <= 0) {
+      continue;
+    }
+
+    const metricScore = Math.min(100, (target / actual) * 100);
+
+    if (!Number.isFinite(metricScore) || metricScore < 0) {
+      continue;
+    }
+
+    score[metric] = Number(metricScore.toFixed(2));
+    validScores.push(score[metric]);
+  }
+
+  if (validScores.length === 0) {
+    return score;
+  }
+
+  score.overall = Number(
+    (
+      validScores.reduce((sum, value) => sum + value, 0) / validScores.length
+    ).toFixed(2),
+  );
+
+  return score;
+}
+
+async function getBestDay() {
+  const records = await prisma.branchDailyMetric.findMany({
+    orderBy: { metricDate: "asc" },
+  });
+
+  if (!records || records.length === 0) {
+    throw new AppError("No branch metrics found", 404, true);
+  }
+
+  let bestRecord = null;
+  let bestScore = -Infinity;
+
+  for (const record of records) {
+    const normalizedRecord = {
+      ...record,
+      opsCR: Number(record.opsCR),
+      dispatchTime: Number(record.dispatchTime),
+      prepTime: Number(record.prepTime),
+      assignmentTime: Number(record.assignmentTime),
+    };
+
+    const score = calculateBestDayScore(normalizedRecord);
+
+    if (score.overall > bestScore) {
+      bestRecord = normalizedRecord;
+      bestScore = score.overall;
+      bestRecord.score = score;
+    }
+  }
+
+  if (!bestRecord) {
+    throw new AppError("No branch metrics found", 404, true);
+  }
+
+  return {
+    status: "success",
+    data: {
+      metricDate: new Date(bestRecord.metricDate).toISOString().slice(0, 10),
+      opsCR: bestRecord.opsCR,
+      dispatchTime: bestRecord.dispatchTime,
+      assignmentTime: bestRecord.assignmentTime,
+      prepTime: bestRecord.prepTime,
+      score: bestRecord.score,
+    },
+  };
+}
+
 module.exports = {
   createDailyMetric,
   getDailyMetrics,
   getDailyMetricByDate,
   updateDailyMetric,
   deleteDailyMetric,
+  getBestDay,
 };

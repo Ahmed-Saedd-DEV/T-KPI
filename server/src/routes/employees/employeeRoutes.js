@@ -9,6 +9,7 @@ const employeePerformanceValidator = require("../../validators/employees/employe
 const router = express.Router();
 
 router.get("/", auth, employeeListValidator, employeeController.getEmployees);
+router.get("/top", auth, employeeController.getTopEmployees);
 router.get("/code/:employeeCode", auth, employeeController.getEmployeeByCode);
 router.get(
   "/:id/performance",

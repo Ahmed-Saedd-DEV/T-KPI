@@ -21,10 +21,14 @@ async function login(req, res, next) {
   }
 }
 
-async function logout(req, res, next) {
+async function getMe(req, res, next) {
   try {
-    await authService.logout(req.user);
-    res.status(200).json({ message: "Logged out successfully" });
+    const result = await authService.getMe({
+      authHeader: req.headers.authorization,
+      currentUser: req.user,
+    });
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -33,5 +37,5 @@ async function logout(req, res, next) {
 module.exports = {
   register,
   login,
-  logout,
+  getMe,
 };

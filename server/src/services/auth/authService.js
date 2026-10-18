@@ -1,7 +1,14 @@
 const prisma = require("../../prisma/prismaClient");
 const AppError = require("../../utils/AppError");
-const { signToken } = require("../../security/tokenService");
-const { comparePassword } = require("../../security/passwordService");
+const { signToken, verifyToken } = require("../../security/tokenService");
+const {
+  hashPassword,
+  comparePassword,
+} = require("../../security/passwordService");
+const {
+  validatePasswordPolicy,
+  PASSWORD_POLICY_MESSAGE,
+} = require("../../validators/auth/registerValidator");
 
 function sanitizeUser(user) {
   return {
@@ -18,42 +25,44 @@ async function register({ email, password }) {
   const plainPassword = typeof password === "string" ? password : "";
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!isValidEmail.test(normalizedEmail) || plainPassword.length === 0) {
-    throw new AppError("Invalid credentials", 401, true);
+  if (!isValidEmail.test(normalizedEmail)) {
+    throw new AppError("Invalid registration data", 400, true);
   }
 
-  const user = await prisma.user.findUnique({
-    where: {
-      email: normalizedEmail,
-    },
-    select: {
-      id: true,
-      email: true,
-      passwordHash: true,
-      role: true,
-      isActive: true,
-    },
+  if (!validatePasswordPolicy(plainPassword)) {
+    throw new AppError(PASSWORD_POLICY_MESSAGE, 400, true);
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
   });
-  if (user) {
-    throw new AppError("User already exists", 409, true);
+
+  if (existingUser) {
+    throw new AppError("Email already in use", 409, true);
   }
 
-  const hashedPassword = await hashPassword(plainPassword);
+  const passwordHash = await hashPassword(plainPassword);
 
   const newUser = await prisma.user.create({
     data: {
       email: normalizedEmail,
-      passwordHash: hashedPassword,
+      passwordHash,
+      role: "USER",
     },
     select: {
       id: true,
       email: true,
-      role: "USER",
+      role: true,
       isActive: true,
     },
   });
 
-  return sanitizeUser(newUser);
+  const token = signToken(newUser.id);
+
+  return {
+    token,
+    user: sanitizeUser(newUser),
+  };
 }
 
 async function login({ email, password }) {
@@ -101,12 +110,6 @@ async function login({ email, password }) {
   };
 }
 
-async function logout(user) {
-  if (!user || !user.id) {
-    throw new AppError("Invalid user", 400, true);
-  }
-}
-
 async function findUserById(id) {
   const user = await prisma.user.findUnique({
     where: { id },
@@ -125,9 +128,51 @@ async function findUserById(id) {
   return sanitizeUser(user);
 }
 
+async function getMe({ authHeader, currentUser }) {
+  let user = currentUser;
+
+  if (!user) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new AppError("Unauthorized", 401, true);
+    }
+
+    const token = authHeader.slice("Bearer ".length).trim();
+    const payload = verifyToken(token);
+
+    user = await prisma.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        employeeId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new AppError("Unauthorized", 401, true);
+    }
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+    employeeId: user.employeeId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
 module.exports = {
   register,
   login,
-  logout,
   findUserById,
+  getMe,
 };

@@ -1,19 +1,31 @@
 require("dotenv").config();
 
 const express = require("express");
+const swaggerUi = require("swagger-ui-express");
 const prisma = require("./prisma/prismaClient");
 const AppError = require("./utils/AppError");
 const errorHandler = require("./middleware/errorHandler");
+const swaggerSpec = require("./docs/swagger");
 const authRoutes = require("./routes/auth/authRoutes");
 const employeeRoutes = require("./routes/employees/employeeRoutes");
 const importRoutes = require("./routes/import/importRoutes");
 const branchMetricRoutes = require("./routes/metrics/branchMetricRoutes");
 const adminEmployeeRoutes = require("./routes/admins/employeeAdminRoutes");
+const userRoutes = require("./routes/admin/userRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  }),
+);
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -36,6 +48,7 @@ app.get("/health", async (req, res, next) => {
 app.use("/auth", authRoutes);
 app.use("/admin/import", importRoutes);
 app.use("/admin/metrics/daily", branchMetricRoutes);
+app.use("/admin/users", userRoutes);
 app.use("/admin", adminEmployeeRoutes);
 app.use("/employees", employeeRoutes);
 
