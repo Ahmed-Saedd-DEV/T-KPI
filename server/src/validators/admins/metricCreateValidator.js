@@ -13,6 +13,15 @@ function isValidDateString(value) {
   return !Number.isNaN(date.getTime());
 }
 
+function isValidIsoDateTime(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+}
+
 function validateMetricCreate(req, res, next) {
   const { body } = req;
 
@@ -26,7 +35,14 @@ function validateMetricCreate(req, res, next) {
     );
   }
 
-  const { metricDate, opsCR, dispatchTime, prepTime, assignmentTime } = body;
+  const {
+    metricDate,
+    recordedAt,
+    opsCR,
+    dispatchTime,
+    prepTime,
+    assignmentTime,
+  } = body;
 
   if (!isValidDateString(metricDate)) {
     return next(
@@ -36,6 +52,26 @@ function validateMetricCreate(req, res, next) {
         true,
       ),
     );
+  }
+
+  if (recordedAt !== undefined && recordedAt !== null && recordedAt !== "") {
+    if (!isValidIsoDateTime(recordedAt)) {
+      return next(
+        new AppError("recordedAt must be a valid ISO 8601 datetime", 400, true),
+      );
+    }
+
+    const recordedDate = new Date(recordedAt);
+    const metricDatePart = new Date(metricDate + "T00:00:00.000Z");
+    if (
+      recordedDate.getUTCFullYear() !== metricDatePart.getUTCFullYear() ||
+      recordedDate.getUTCMonth() !== metricDatePart.getUTCMonth() ||
+      recordedDate.getUTCDate() !== metricDatePart.getUTCDate()
+    ) {
+      return next(
+        new AppError("recordedAt date must match metricDate", 400, true),
+      );
+    }
   }
 
   const required = [

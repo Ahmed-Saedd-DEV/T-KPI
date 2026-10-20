@@ -96,6 +96,7 @@ model EmployeePerformance {
 model BranchDailyMetric {
   id            String   @id @default(uuid()) @db.Uuid
   metricDate    DateTime @db.Date @unique
+  recordedAt    DateTime?
   opsCR         Decimal  @db.Decimal(10, 3)
   dispatchTime  Decimal  @db.Decimal(10, 3)
   prepTime      Decimal  @db.Decimal(10, 3)

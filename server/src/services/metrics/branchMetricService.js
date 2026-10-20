@@ -14,11 +14,13 @@ function parseDate(dateStr) {
 
 async function createDailyMetric(data, actor) {
   const metricDate = parseDate(data.metricDate);
+  const recordedAt = data.recordedAt ? new Date(data.recordedAt) : undefined;
 
   try {
     const metric = await prisma.branchDailyMetric.create({
       data: {
         metricDate,
+        ...(recordedAt ? { recordedAt } : {}),
         opsCR: Number(data.opsCR),
         dispatchTime: Number(data.dispatchTime),
         prepTime: Number(data.prepTime),
@@ -114,6 +116,17 @@ async function updateDailyMetric(dateStr, data, actor) {
 
   const updates = {};
   for (const key of keys) {
+    if (key === "recordedAt") {
+      if (
+        data.recordedAt !== undefined &&
+        data.recordedAt !== null &&
+        data.recordedAt !== ""
+      ) {
+        updates.recordedAt = new Date(data.recordedAt);
+      }
+      continue;
+    }
+
     updates[key] = Number(data[key]);
   }
   updates.updatedById = actor.id;

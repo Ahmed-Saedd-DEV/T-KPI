@@ -24,6 +24,11 @@ module.exports = {
                   format: "date",
                   example: "2026-10-16",
                 },
+                recordedAt: {
+                  type: "string",
+                  format: "date-time",
+                  example: "2026-10-16T14:30:00.000Z",
+                },
                 opsCR: { type: "number" },
                 dispatchTime: { type: "number" },
                 prepTime: { type: "number" },
@@ -72,7 +77,21 @@ module.exports = {
             "application/json": {
               schema: {
                 type: "array",
-                items: { $ref: "#/components/schemas/BranchDailyMetric" },
+                items: {
+                  allOf: [
+                    { $ref: "#/components/schemas/BranchDailyMetric" },
+                    {
+                      type: "object",
+                      properties: {
+                        recordedAt: {
+                          type: "string",
+                          format: "date-time",
+                          nullable: true,
+                        },
+                      },
+                    },
+                  ],
+                },
               },
             },
           },
@@ -100,6 +119,12 @@ module.exports = {
                     type: "object",
                     properties: {
                       metricDate: { type: "string", example: "2026-10-16" },
+                      recordedAt: {
+                        type: "string",
+                        format: "date-time",
+                        nullable: true,
+                        example: "2026-10-16T14:30:00.000Z",
+                      },
                       opsCR: { type: "number", example: 0.025 },
                       dispatchTime: { type: "number", example: 4.5 },
                       assignmentTime: { type: "number", example: 0.15 },
@@ -140,7 +165,28 @@ module.exports = {
         },
       ],
       responses: {
-        200: { description: "Metric found" },
+        200: {
+          description: "Metric found",
+          content: {
+            "application/json": {
+              schema: {
+                allOf: [
+                  { $ref: "#/components/schemas/BranchDailyMetric" },
+                  {
+                    type: "object",
+                    properties: {
+                      recordedAt: {
+                        type: "string",
+                        format: "date-time",
+                        nullable: true,
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
         400: { description: "Invalid date format" },
         401: { description: "Unauthorized" },
         403: { description: "Forbidden" },
@@ -166,6 +212,11 @@ module.exports = {
             schema: {
               type: "object",
               properties: {
+                recordedAt: {
+                  type: "string",
+                  format: "date-time",
+                  example: "2026-10-16T14:30:00.000Z",
+                },
                 opsCR: { type: "number" },
                 dispatchTime: { type: "number" },
                 prepTime: { type: "number" },

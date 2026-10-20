@@ -7,7 +7,17 @@ const ALLOWED_FIELDS = new Set([
   "dispatchTime",
   "prepTime",
   "assignmentTime",
+  "recordedAt",
 ]);
+
+function isValidIsoDateTime(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+}
 
 function validateMetricUpdate(req, res, next) {
   const { body } = req;
@@ -29,6 +39,24 @@ function validateMetricUpdate(req, res, next) {
 
   for (const field of keys) {
     const value = body[field];
+
+    if (field === "recordedAt") {
+      if (value === undefined || value === null || value === "") {
+        continue;
+      }
+
+      if (!isValidIsoDateTime(value)) {
+        return next(
+          new AppError(
+            "recordedAt must be a valid ISO 8601 datetime",
+            400,
+            true,
+          ),
+        );
+      }
+      continue;
+    }
+
     const num = Number(value);
 
     if (!Number.isFinite(num) || num <= 0) {

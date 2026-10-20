@@ -4,8 +4,12 @@ const branchMetricService = require("../../services/metrics/branchMetricService"
 
 async function createDailyMetric(req, res, next) {
   try {
+    const { recordedAt, ...rest } = req.body || {};
     const metric = await branchMetricService.createDailyMetric(
-      req.body || {},
+      {
+        ...rest,
+        recordedAt,
+      },
       req.user,
     );
     res.status(201).json(metric);
@@ -45,9 +49,13 @@ async function getDailyMetricByDate(req, res, next) {
 
 async function updateDailyMetric(req, res, next) {
   try {
+    const { recordedAt, ...rest } = req.body || {};
     const metric = await branchMetricService.updateDailyMetric(
       req.params.date,
-      req.body || {},
+      {
+        ...rest,
+        recordedAt,
+      },
       req.user,
     );
     res.status(200).json(metric);
