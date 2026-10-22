@@ -2,7 +2,7 @@
 
 const prisma = require("../../prisma/prismaClient");
 const AppError = require("../../utils/AppError");
-const { calculateKpiScore } = require("../kpi/kpiService");
+const { calculateKpiScore } = require("../../domain/kpi/kpiCalculator");
 
 function isValidUuid(value) {
   return (

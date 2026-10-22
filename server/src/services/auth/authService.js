@@ -1,4 +1,4 @@
-const prisma = require("../../prisma/prismaClient");
+const userRepository = require("../../repositories/userRepository");
 const AppError = require("../../utils/AppError");
 const { signToken, verifyToken } = require("../../security/tokenService");
 const {
@@ -33,9 +33,7 @@ async function register({ email, password }) {
     throw new AppError(PASSWORD_POLICY_MESSAGE, 400, true);
   }
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-  });
+  const existingUser = await userRepository.findByEmail(normalizedEmail);
 
   if (existingUser) {
     throw new AppError("Email already in use", 409, true);
@@ -43,12 +41,11 @@ async function register({ email, password }) {
 
   const passwordHash = await hashPassword(plainPassword);
 
-  const newUser = await prisma.user.create({
-    data: {
-      email: normalizedEmail,
-      passwordHash,
-      role: "USER",
-    },
+  const newUser = await userRepository.create({
+    email: normalizedEmail,
+    passwordHash,
+    role: "USER",
+  }, {
     select: {
       id: true,
       email: true,
@@ -76,10 +73,7 @@ async function login({ email, password }) {
     throw new AppError("Invalid credentials", 401, true);
   }
 
-  const user = await prisma.user.findUnique({
-    where: {
-      email: normalizedEmail,
-    },
+  const user = await userRepository.findByEmail(normalizedEmail, {
     select: {
       id: true,
       email: true,
@@ -111,8 +105,7 @@ async function login({ email, password }) {
 }
 
 async function findUserById(id) {
-  const user = await prisma.user.findUnique({
-    where: { id },
+  const user = await userRepository.findById(id, {
     select: {
       id: true,
       email: true,
@@ -139,10 +132,7 @@ async function getMe({ authHeader, currentUser }) {
     const token = authHeader.slice("Bearer ".length).trim();
     const payload = verifyToken(token);
 
-    user = await prisma.user.findUnique({
-      where: {
-        id: payload.sub,
-      },
+    user = await userRepository.findById(payload.sub, {
       select: {
         id: true,
         email: true,

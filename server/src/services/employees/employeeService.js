@@ -1,20 +1,13 @@
 const prisma = require("../../prisma/prismaClient");
+const employeeRepository = require("../../repositories/employeeRepository");
 const AppError = require("../../utils/AppError");
 
 async function getEmployees() {
-  return prisma.employee.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  return employeeRepository.findAll();
 }
 
 async function getEmployeeById(id) {
-  const employee = await prisma.employee.findUnique({
-    where: {
-      id,
-    },
-  });
+  const employee = await employeeRepository.findById(id);
 
   if (!employee) {
     throw new AppError("Employee not found", 404, true);
@@ -24,11 +17,7 @@ async function getEmployeeById(id) {
 }
 
 async function getEmployeeByCode(employeeCode) {
-  const employee = await prisma.employee.findUnique({
-    where: {
-      employeeCode,
-    },
-  });
+  const employee = await employeeRepository.findByCode(employeeCode);
 
   if (!employee) {
     throw new AppError("Employee not found", 404, true);
@@ -47,12 +36,7 @@ async function createEmployee(data = {}) {
   }
 
   try {
-    return await prisma.employee.create({
-      data: {
-        employeeCode,
-        name,
-      },
-    });
+    return await employeeRepository.create({ employeeCode, name });
   } catch (error) {
     if (error && error.code === "P2002") {
       throw new AppError("Employee code already exists", 409, true);
@@ -90,11 +74,7 @@ async function updateEmployee(id, data = {}) {
     throw new AppError("Employee update payload is required", 400, true);
   }
 
-  const existingEmployee = await prisma.employee.findUnique({
-    where: {
-      id,
-    },
-  });
+  const existingEmployee = await employeeRepository.findById(id);
 
   if (!existingEmployee) {
     throw new AppError("Employee not found", 404, true);
@@ -104,11 +84,9 @@ async function updateEmployee(id, data = {}) {
     updates.employeeCode &&
     updates.employeeCode !== existingEmployee.employeeCode
   ) {
-    const duplicateEmployee = await prisma.employee.findUnique({
-      where: {
-        employeeCode: updates.employeeCode,
-      },
-    });
+    const duplicateEmployee = await employeeRepository.findByCode(
+      updates.employeeCode,
+    );
 
     if (duplicateEmployee && duplicateEmployee.id !== id) {
       throw new AppError("Employee code already exists", 409, true);
@@ -116,12 +94,7 @@ async function updateEmployee(id, data = {}) {
   }
 
   try {
-    return await prisma.employee.update({
-      where: {
-        id,
-      },
-      data: updates,
-    });
+    return await employeeRepository.update(id, updates);
   } catch (error) {
     if (error && error.code === "P2002") {
       throw new AppError("Employee code already exists", 409, true);
@@ -132,11 +105,7 @@ async function updateEmployee(id, data = {}) {
 }
 
 async function deleteEmployee(id, actor = null) {
-  const existingEmployee = await prisma.employee.findUnique({
-    where: {
-      id,
-    },
-  });
+  const existingEmployee = await employeeRepository.findById(id);
 
   if (!existingEmployee) {
     throw new AppError("Employee not found", 404, true);
@@ -153,17 +122,8 @@ async function deleteEmployee(id, actor = null) {
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.employeePerformance.deleteMany({
-        where: {
-          employeeId: id,
-        },
-      });
-
-      await tx.employee.delete({
-        where: {
-          id,
-        },
-      });
+      await employeeRepository.deletePerformancesByEmployeeId(id, tx);
+      await employeeRepository.deleteById(id, tx);
 
       await tx.auditLog.create({
         data: {

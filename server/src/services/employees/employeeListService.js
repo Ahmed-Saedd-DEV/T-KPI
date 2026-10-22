@@ -1,7 +1,7 @@
 "use strict";
 
 const prisma = require("../../prisma/prismaClient");
-const { calculateKpiScore } = require("../kpi/kpiService");
+const { calculateKpiScore } = require("../../domain/kpi/kpiCalculator");
 const { buildSearchFilter } = require("../../utils/query/buildSearchFilter");
 const { buildScoreFilter } = require("../../utils/query/buildScoreFilter");
 

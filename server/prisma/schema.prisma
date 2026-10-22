@@ -97,10 +97,10 @@ model BranchDailyMetric {
   id            String   @id @default(uuid()) @db.Uuid
   metricDate    DateTime @db.Date @unique
   recordedAt    DateTime?
-  opsCR         Decimal  @db.Decimal(10, 3)
-  dispatchTime  Decimal  @db.Decimal(10, 3)
-  prepTime      Decimal  @db.Decimal(10, 3)
-  assignmentTime Decimal @db.Decimal(10, 3)
+  opsCR         Decimal?  @db.Decimal(10, 3)
+  dispatchTime  Decimal?  @db.Decimal(10, 3)
+  prepTime      Decimal?  @db.Decimal(10, 3)
+  assignmentTime Decimal? @db.Decimal(10, 3)
   createdById   String   @db.Uuid
   updatedById   String?  @db.Uuid
   createdAt     DateTime @default(now())

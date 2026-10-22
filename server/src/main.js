@@ -8,10 +8,10 @@ const errorHandler = require("./middleware/errorHandler");
 const swaggerSpec = require("./docs/swagger");
 const authRoutes = require("./routes/auth/authRoutes");
 const employeeRoutes = require("./routes/employees/employeeRoutes");
-const importRoutes = require("./routes/import/importRoutes");
-const branchMetricRoutes = require("./routes/metrics/branchMetricRoutes");
-const adminEmployeeRoutes = require("./routes/admins/employeeAdminRoutes");
-const userRoutes = require("./routes/admin/userRoutes");
+const importRoutes = require("./routes/admin/import/importRoutes");
+const branchMetricRoutes = require("./routes/admin/metrics/branchMetricRoutes");
+const adminEmployeeRoutes = require("./routes/admin/employees/employeeAdminRoutes");
+const userRoutes = require("./routes/admin/users/userRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;

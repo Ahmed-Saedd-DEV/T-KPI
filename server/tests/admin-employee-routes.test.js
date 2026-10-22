@@ -4,7 +4,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 
 const prisma = require("../src/prisma/prismaClient");
-const adminEmployeeRoutes = require("../src/routes/admins/employeeAdminRoutes");
+const adminEmployeeRoutes = require("../src/routes/admin/employees/employeeAdminRoutes");
 const employeeRoutes = require("../src/routes/employees/employeeRoutes");
 const errorHandler = require("../src/middleware/errorHandler");
 
