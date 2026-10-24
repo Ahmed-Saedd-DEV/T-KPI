@@ -60,7 +60,7 @@ interface AppContextType {
   authLoading: boolean;
   loginError: string | null;
   sessionExpired: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   clearLoginError: () => void;
 }
@@ -70,16 +70,13 @@ const AUTH_SESSION_KEY = 'picker-performance-dashboard-session';
 
 const readStoredSession = (): AuthSession | null => {
   if (typeof window === 'undefined') return null;
-
   try {
     const rawSession = window.localStorage.getItem(AUTH_SESSION_KEY);
     if (!rawSession) return null;
-
     const parsedSession: AuthSession = JSON.parse(rawSession);
     if (!parsedSession?.token || !parsedSession?.user || !parsedSession?.expiresAt) {
       return null;
     }
-
     return parsedSession;
   } catch {
     return null;
@@ -132,7 +129,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSessionExpired(false);
     setAuthLoading(false);
 
-    // إضافة جديدة — listener للـ 401 من الـ API client
     const handleExpired = () => {
       clearStoredSession();
       setIsAuthenticated(false);
@@ -151,13 +147,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 4500);
   };
 
-  const dismissToast = () => {
-    setToast(null);
-  };
-
-  const clearLoginError = () => {
-    setLoginError(null);
-  };
+  const dismissToast = () => setToast(null);
+  const clearLoginError = () => setLoginError(null);
 
   const logout = () => {
     clearStoredSession();
@@ -168,51 +159,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('dashboard');
   };
 
-const login = async (email: string, password: string): Promise<boolean> => {
-  const trimmedEmail = email.trim();
-  const trimmedPassword = password.trim();
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-  if (!trimmedEmail || !trimmedPassword) {
-    setLoginError('Email and password are required');
-    setSessionExpired(false);
-    return false;
-  }
+    if (!trimmedEmail || !trimmedPassword) {
+      setLoginError('Email and password are required');
+      setSessionExpired(false);
+      return false;
+    }
 
-  try {
-    const { data } = await apiClient.post('/auth/login', {
-      email: trimmedEmail,
-      password: trimmedPassword,
-    });
+    try {
+      const { data } = await apiClient.post('/auth/login', {
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
 
-    const user: AuthUser = {
-      id: data.user.id,
-      username: data.user.email,
-      displayName: data.user.email,
-      role: data.user.role,
-    };
+      const user: AuthUser = {
+        id: data.user.id,
+        username: data.user.email,
+        displayName: data.user.email,
+        role: data.user.role,
+      };
 
-    const nextSession: AuthSession = {
-      token: data.token,
-      expiresAt: Date.now() + 8 * 60 * 60 * 1000, // 8h — matches backend JWT
-      user,
-    };
+      const nextSession: AuthSession = {
+        token: data.token,
+        expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+        user,
+      };
 
-    window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
-    setCurrentUser(user);
-    setIsAuthenticated(true);
-    setLoginError(null);
-    setSessionExpired(false);
-    setActiveTab('admin');
-    return true;
-  } catch (err: unknown) {
-    const message =
-      (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      ?? 'Invalid credentials';
-    setLoginError(message);
-    setSessionExpired(false);
-    return false;
-  }
-};
+      window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      setLoginError(null);
+      setSessionExpired(false);
+      setActiveTab('admin');
+      return true;
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })
+          ?.response?.data?.message ?? 'Invalid credentials';
+      setLoginError(message);
+      setSessionExpired(false);
+      return false;
+    }
+  };
 
   const addPicker = (id: string, name: string): { success: boolean; error?: string } => {
     const trimmedId = id.trim().toUpperCase();
@@ -229,7 +220,6 @@ const login = async (email: string, password: string): Promise<boolean> => {
       };
     }
 
-    // Default velocity around 88%
     const defaultVelocity = 88;
     const tier: PerformanceTier = 'very_good';
 
@@ -237,7 +227,7 @@ const login = async (email: string, password: string): Promise<boolean> => {
       id: trimmedId,
       name: trimmedName,
       velocityScore: defaultVelocity,
-      tier: tier,
+      tier,
       tierLabel: 'Very Good',
       tierColor: '#52e87c',
       orders: 110,
@@ -266,7 +256,6 @@ const login = async (email: string, password: string): Promise<boolean> => {
   const removePicker = (id: string): boolean => {
     const candidate = pickers.find((p) => p.id === id);
     if (!candidate) return false;
-
     setPickers((prev) => prev.filter((p) => p.id !== id));
     showToast(
       'Picker Removed Successfully',
@@ -278,9 +267,14 @@ const login = async (email: string, password: string): Promise<boolean> => {
   const updateBranchKpi = (key: BranchKpiKey, value: string, date: string) => {
     setBranchKpis((prev) => {
       const current = prev[key];
-      const updatedValue = value.includes('%') || value.includes('s') || value.includes('m')
-        ? value
-        : `${value}${current.unit === '%' ? '%' : current.unit === 's' ? 's' : current.unit === 'm' ? 'm' : ''}`;
+      const updatedValue =
+        value.includes('%') || value.includes('s') || value.includes('m')
+          ? value
+          : `${value}${
+              current.unit === '%' ? '%' :
+              current.unit === 's' ? 's' :
+              current.unit === 'm' ? 'm' : ''
+            }`;
 
       return {
         ...prev,
@@ -302,11 +296,14 @@ const login = async (email: string, password: string): Promise<boolean> => {
     const newRecord: RecentUpload = {
       id: `up-${Date.now()}`,
       fileName,
-      timestamp: new Date().toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }) + ' ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+      timestamp:
+        new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }) +
+        ' ' +
+        new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
       size,
       status: 'Success',
       shiftsCount,

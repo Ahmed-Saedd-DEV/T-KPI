@@ -40,25 +40,18 @@ app.use(
   "/api-docs",
   swaggerUi.serve,
   swaggerUi.setup(swaggerSpec, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
+    swaggerOptions: { persistAuthorization: true },
   }),
 );
 
 app.get("/", (req, res) => {
-  res.status(200).json({
-    message: "Talabat KPI API is running",
-  });
+  res.status(200).json({ message: "Talabat KPI API is running" });
 });
 
 app.get("/health", async (req, res, next) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.status(200).json({
-      status: "ok",
-      database: "connected",
-    });
+    res.status(200).json({ status: "ok", database: "connected" });
   } catch (error) {
     next(new AppError("Database unavailable", 503, false));
   }

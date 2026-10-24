@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 
 export const AdminLoginView: React.FC = () => {
   const { login, loginError, sessionExpired, clearLoginError } = useApp();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -13,7 +13,7 @@ export const AdminLoginView: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const ok = await login(username, password);
+      const ok = await login(email, password);
       if (!ok) {
         setIsSubmitting(false);
       }
@@ -43,8 +43,8 @@ export const AdminLoginView: React.FC = () => {
             <input
               id="admin-email"
               type="email"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               autoComplete="email"
               className="w-full rounded-xl border border-[#283953] bg-[#0F172A] px-3 py-3 text-sm text-white outline-none transition focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/20"
               placeholder="Enter email address"
