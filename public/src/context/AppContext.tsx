@@ -12,6 +12,7 @@ import {
   INITIAL_BRANCH_KPIS,
   INITIAL_UPLOADS,
 } from '../data/initialData';
+import apiClient from '../api/client';
 
 interface ToastMessage {
   id: string;
@@ -130,6 +131,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAuthenticated(true);
     setSessionExpired(false);
     setAuthLoading(false);
+
+    // إضافة جديدة — listener للـ 401 من الـ API client
+    const handleExpired = () => {
+      clearStoredSession();
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setSessionExpired(true);
+    };
+    window.addEventListener('session-expired', handleExpired);
+    return () => window.removeEventListener('session-expired', handleExpired);
   }, []);
 
   const showToast = (title: string, description: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -157,40 +168,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('dashboard');
   };
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    const trimmedUsername = username.trim();
-    const trimmedPassword = password.trim();
+const login = async (email: string, password: string): Promise<boolean> => {
+  const trimmedEmail = email.trim();
+  const trimmedPassword = password.trim();
 
-    if (!trimmedUsername || !trimmedPassword) {
-      setLoginError('Invalid username or password');
-      setSessionExpired(false);
-      return false;
-    }
+  if (!trimmedEmail || !trimmedPassword) {
+    setLoginError('Email and password are required');
+    setSessionExpired(false);
+    return false;
+  }
+
+  try {
+    const { data } = await apiClient.post('/auth/login', {
+      email: trimmedEmail,
+      password: trimmedPassword,
+    });
 
     const user: AuthUser = {
-      id: `user-${trimmedUsername.toLowerCase()}`,
-      username: trimmedUsername,
-      displayName: trimmedUsername,
-      role: 'Floor Supervisor',
+      id: data.user.id,
+      username: data.user.email,
+      displayName: data.user.email,
+      role: data.user.role,
     };
 
     const nextSession: AuthSession = {
-      token: `local-${Date.now()}`,
-      expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+      token: data.token,
+      expiresAt: Date.now() + 8 * 60 * 60 * 1000, // 8h — matches backend JWT
       user,
     };
 
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
-    }
-
+    window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
     setCurrentUser(user);
     setIsAuthenticated(true);
     setLoginError(null);
     setSessionExpired(false);
     setActiveTab('admin');
     return true;
-  };
+  } catch (err: unknown) {
+    const message =
+      (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      ?? 'Invalid credentials';
+    setLoginError(message);
+    setSessionExpired(false);
+    return false;
+  }
+};
 
   const addPicker = (id: string, name: string): { success: boolean; error?: string } => {
     const trimmedId = id.trim().toUpperCase();

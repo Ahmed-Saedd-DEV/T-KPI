@@ -37,17 +37,17 @@ export const AdminLoginView: React.FC = () => {
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="admin-username" className="mb-2 block text-sm font-medium text-[#E2E8F0]">
-              Username
+            <label htmlFor="admin-email" className="mb-2 block text-sm font-medium text-[#E2E8F0]">
+              Email
             </label>
             <input
-              id="admin-username"
-              type="text"
+              id="admin-email"
+              type="email"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              autoComplete="username"
+              autoComplete="email"
               className="w-full rounded-xl border border-[#283953] bg-[#0F172A] px-3 py-3 text-sm text-white outline-none transition focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/20"
-              placeholder="Enter username"
+              placeholder="Enter email address"
               disabled={isSubmitting}
             />
           </div>

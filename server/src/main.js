@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const prisma = require("./prisma/prismaClient");
 const AppError = require("./utils/AppError");
@@ -16,6 +17,23 @@ const auditRoutes = require("./routes/admin/audit/auditRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin '${origin}' not allowed`));
+      }
+    },
+    credentials: true,
+  }),
+);
 
 app.use(express.json());
 app.use(
