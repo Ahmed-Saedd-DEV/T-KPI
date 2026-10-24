@@ -8,6 +8,7 @@ const adminEmployeesPaths = require("./paths/adminEmployees");
 const adminImportPaths = require("./paths/adminImport");
 const adminMetricsPaths = require("./paths/adminMetrics");
 const adminUsersPaths = require("./paths/adminUsers");
+const adminAuditPaths = require("./paths/adminAudit");
 
 const options = {
   definition: {
@@ -36,6 +37,7 @@ const options = {
       ...adminImportPaths,
       ...adminMetricsPaths,
       ...adminUsersPaths,
+      ...adminAuditPaths,
     },
   },
   apis: [],

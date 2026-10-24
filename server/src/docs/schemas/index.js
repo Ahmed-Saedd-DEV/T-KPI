@@ -58,6 +58,21 @@ module.exports = {
       dispatchTime: { type: "number" },
       prepTime: { type: "number" },
       assignmentTime: { type: "number" },
+      orderCount: {
+        type: "number",
+        nullable: true,
+        description: "Daily order count",
+      },
+      atVendorTime: {
+        type: "number",
+        nullable: true,
+        description: "Average time at vendor in minutes",
+      },
+      adjustTime: {
+        type: "number",
+        nullable: true,
+        description: "Adjustment time in minutes",
+      },
       createdById: { type: "string", format: "uuid" },
       updatedById: { type: "string", format: "uuid", nullable: true },
       createdAt: { type: "string", format: "date-time" },

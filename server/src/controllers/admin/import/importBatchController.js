@@ -4,7 +4,7 @@ const importBatchService = require("../../../services/admin/import/importBatchSe
 
 async function getImportBatches(req, res, next) {
   try {
-    const batches = await importBatchService.getImportBatches();
+    const batches = await importBatchService.getImportBatches(req.query);
     res.status(200).json(batches);
   } catch (error) {
     next(error);

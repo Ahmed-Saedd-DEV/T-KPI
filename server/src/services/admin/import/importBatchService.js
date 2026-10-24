@@ -1,8 +1,9 @@
 "use strict";
 
-const prisma = require("../../../prisma/prismaClient");
 const importRepository = require("../../../repositories/importRepository");
 const AppError = require("../../../utils/AppError");
+const { createAuditLog } = require("../../../utils/audit/createAuditLog");
+const { buildBatchFilter } = require("../../../utils/query/buildBatchFilter");
 
 function isValidUuid(value) {
   return (
@@ -13,8 +14,9 @@ function isValidUuid(value) {
   );
 }
 
-async function getImportBatches() {
-  const batches = await importRepository.findAllBatches();
+async function getImportBatches(query = {}) {
+  const { filter, options } = buildBatchFilter(query);
+  const batches = await importRepository.findAllBatches(filter, options);
 
   return batches.map((batch) => ({
     id: batch.id,
@@ -42,29 +44,16 @@ async function deleteImportBatch(id, actor = null) {
     throw new AppError("Import batch not found", 404, true);
   }
 
-  const actorSnapshot =
-    actor && typeof actor === "object"
-      ? {
-          id: actor.id || null,
-          email: actor.email || null,
-          role: actor.role || null,
-        }
-      : null;
-
   try {
-    await prisma.$transaction(async (tx) => {
-      await importRepository.deleteBatch(id, tx);
+    await importRepository.deleteBatch(id);
 
-      await tx.auditLog.create({
-        data: {
-          action: "BATCH_DELETE",
-          entityType: "ImportBatch",
-          entityId: id,
-          beforeData: existingBatch,
-          actorUserId: actor && actor.id ? actor.id : null,
-          actorSnapshot,
-        },
-      });
+    await createAuditLog({
+      action: "BATCH_DELETE",
+      entityType: "ImportBatch",
+      entityId: id,
+      beforeData: existingBatch,
+      afterData: null,
+      actor,
     });
 
     return null;

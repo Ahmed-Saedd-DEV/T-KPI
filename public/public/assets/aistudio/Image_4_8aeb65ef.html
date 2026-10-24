@@ -1,0 +1,1093 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Picker Performance - Floor Operations</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS Play CDN with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "primary-container": "#38bdf8",
+            "inverse-on-surface": "#233143",
+            "outline-variant": "#3e484f",
+            "on-tertiary-container": "#004f20",
+            "on-error": "#690005",
+            "background": "#051424",
+            "on-tertiary-fixed": "#002109",
+            "primary": "#8ed5ff",
+            "inverse-surface": "#d4e4fa",
+            "on-secondary-container": "#a7b5d3",
+            "on-primary-fixed-variant": "#004c69",
+            "surface-container-low": "#0d1c2d",
+            "secondary-fixed": "#d6e3ff",
+            "inverse-primary": "#00668a",
+            "secondary": "#b9c7e5",
+            "surface-dim": "#051424",
+            "outline": "#87929a",
+            "on-secondary-fixed-variant": "#394760",
+            "on-background": "#d4e4fa",
+            "surface-variant": "#273647",
+            "primary-fixed": "#c4e7ff",
+            "primary-fixed-dim": "#7bd0ff",
+            "on-primary-container": "#004965",
+            "error-container": "#93000a",
+            "tertiary": "#52e87c",
+            "on-secondary": "#233148",
+            "tertiary-fixed-dim": "#4ae176",
+            "surface-container-high": "#1c2b3c",
+            "tertiary-container": "#2ccb63",
+            "on-surface-variant": "#bdc8d1",
+            "error": "#ffb4ab",
+            "secondary-container": "#394760",
+            "on-tertiary": "#003915",
+            "surface-container-highest": "#273647",
+            "on-error-container": "#ffdad6",
+            "surface-bright": "#2c3a4c",
+            "surface-tint": "#7bd0ff",
+            "on-primary-fixed": "#001e2c",
+            "tertiary-fixed": "#6bff8f",
+            "surface-container": "#122131",
+            "secondary-fixed-dim": "#b9c7e5",
+            "on-primary": "#00354a",
+            "on-secondary-fixed": "#0d1c32",
+            "surface-container-lowest": "#010f1f",
+            "on-surface": "#d4e4fa",
+            "on-tertiary-fixed-variant": "#005321",
+            "surface": "#051424"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-xl": "2rem",
+            "space-sm": "0.5rem",
+            "margin-lg": "2rem",
+            "gutter-lg": "1.5rem",
+            "margin": "1.5rem",
+            "space-md": "1rem",
+            "gutter": "1rem",
+            "gutter-sm": "0.75rem",
+            "margin-sm": "0.75rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.5rem"
+          },
+          "fontFamily": {
+            "headline-md": ["Inter"],
+            "body-md": ["Inter"],
+            "metric-num-sm": ["Inter"],
+            "label-lg": ["Inter"],
+            "headline-sm": ["Inter"],
+            "metric-num-lg": ["Inter"],
+            "display-lg": ["Inter"],
+            "body-lg": ["Inter"],
+            "display-lg-mobile": ["Inter"],
+            "headline-lg-mobile": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-sm": ["Inter"],
+            "metric-num-md": ["Inter"],
+            "label-md": ["Inter"],
+            "label-sm": ["Inter"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    body {
+      min-height: 100vh;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B1120;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+</style>
+</head>
+<body class="bg-[#0B1120] text-on-surface antialiased min-h-screen flex flex-col font-body-md select-none">
+<!-- Toast Notification -->
+<div class="hidden fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#151F32] border border-[#22C55E]/40 text-[#F8FAFC] px-4 py-3 rounded-lg shadow-2xl transition-all duration-300" id="system-toast">
+<span class="material-symbols-outlined text-[#22C55E] text-[20px]">check_circle</span>
+<div>
+<div class="text-sm font-semibold">Picker Removed Successfully</div>
+<div class="text-xs text-on-surface-variant">Badge record archived and shifts synchronized.</div>
+</div>
+<button class="ml-2 text-outline hover:text-[#F8FAFC]" onclick="document.getElementById('system-toast').classList.add('hidden')">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- 1. Shared Shell: Persistent Desktop Left Sidebar (w-64) matching Dashboard -->
+<aside class="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-[#0D1527] border-r border-[#1E293B] flex-col h-full py-4 px-3 z-40">
+<!-- Brand / Logo -->
+<div class="px-3 py-2 mb-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#38BDF8] to-[#0284C7] flex items-center justify-center text-[#0B1120] font-black shadow-md shadow-[#38BDF8]/20">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">speed</span>
+</div>
+<div>
+<div class="text-headline-sm font-bold text-[#F8FAFC] tracking-tight leading-tight">Picker Performance</div>
+<div class="text-[10px] text-outline uppercase tracking-wider font-semibold">Fulfillment Ops</div>
+</div>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="space-y-1.5 flex-1">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant font-medium hover:bg-[#151F32] hover:text-[#F8FAFC] transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="text-sm">Dashboard</span>
+</a>
+<!-- Picker Performance (Active exact match) -->
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-[#1B2940] text-[#38BDF8] font-bold border-l-4 border-[#38BDF8] shadow-sm" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">speed</span>
+<span class="text-sm">Picker Performance</span>
+</div>
+<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#38BDF8]/15 text-[#38BDF8] font-mono">24 LIVE</span>
+</a>
+<!-- Branch KPIs -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant font-medium hover:bg-[#151F32] hover:text-[#F8FAFC] transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+<span class="text-sm">Branch KPIs</span>
+</a>
+<!-- Floor Map & Zones -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant font-medium hover:bg-[#151F32] hover:text-[#F8FAFC] transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span class="text-sm">Zone Dispatch</span>
+</a>
+<!-- Admin / Input -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant font-medium hover:bg-[#151F32] hover:text-[#F8FAFC] transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">tune</span>
+<span class="text-sm">Admin / Settings</span>
+</a>
+</nav>
+<!-- Sidebar Telemetry Card in Footer -->
+<div class="p-3 bg-[#151F32] rounded-xl border border-[#1E293B] text-body-sm text-on-surface-variant space-y-2">
+<div class="flex items-center justify-between text-[11px] text-outline font-semibold">
+<span>FACILITY HUB-04</span>
+<span class="text-[#22C55E] flex items-center gap-1 font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"></span> ONLINE
+      </span>
+</div>
+<div>
+<p class="font-bold text-[#F8FAFC] text-sm">Shift B (Afternoon Wave)</p>
+<p class="text-[11px] text-outline mt-0.5 tabular-nums">Active Target: 120 PPH · Floor: 88%</p>
+</div>
+</div>
+</aside>
+<!-- Main Shell Container: Full desktop viewport width offset by sidebar -->
+<div class="lg:pl-64 flex-1 flex flex-col min-w-0">
+<!-- Desktop Top Header Bar matching Dashboard layout with indicators -->
+<header class="bg-[#0D1527] border-b border-[#1E293B] flex justify-between items-center w-full px-8 h-16 sticky top-0 z-30">
+<div class="flex items-center gap-4">
+<button aria-label="Open Navigation" class="lg:hidden p-2 rounded-lg text-on-surface-variant hover:bg-[#151F32]">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="flex items-center gap-3">
+<h1 class="text-xl font-bold text-[#F8FAFC] tracking-tight">Picker Performance</h1>
+<span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/20">
+<span class="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-ping"></span>
+          REAL-TIME TELEMETRY
+        </span>
+</div>
+</div>
+<!-- Trailing System Indicators & Actions -->
+<div class="flex items-center gap-4">
+<!-- Sync telemetry status indicator -->
+<div class="hidden md:flex items-center gap-2 bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-1.5 text-xs text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-[#22C55E]"></span>
+<span>Telemetry Stream: <strong class="text-[#F8FAFC]">Active</strong></span>
+<span class="text-outline">· 2s ago</span>
+</div>
+<!-- Station / Warehouse quick badge -->
+<div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#151F32] border border-[#1E293B] text-xs font-semibold text-outline">
+<span class="material-symbols-outlined text-[16px] text-[#38BDF8]">warehouse</span>
+<span class="text-[#F8FAFC]">Zone 04-A</span>
+</div>
+<!-- Quick Notifications button -->
+<button aria-label="Notifications" class="p-2 rounded-lg text-outline hover:text-[#F8FAFC] hover:bg-[#151F32] transition-colors relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#38BDF8]"></span>
+</button>
+<!-- User avatar / indicator -->
+<div class="flex items-center gap-2 pl-2 border-l border-[#1E293B]">
+<div class="w-8 h-8 rounded-full bg-[#1B2940] border border-[#38BDF8]/40 flex items-center justify-center text-xs font-bold text-[#38BDF8]">
+          OP
+        </div>
+<div class="hidden xl:block text-left text-xs">
+<div class="font-semibold text-[#F8FAFC]">Ops Supervisor</div>
+<div class="text-[11px] text-outline">Terminal #12</div>
+</div>
+</div>
+</div>
+</header>
+<!-- 2. Layout & Spacing: Main content area full viewport padding px-8 py-6 -->
+<main class="flex-1 px-8 py-6 space-y-6 w-full">
+<!-- Overview Bar & Headline Summary -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+<div>
+<p class="text-sm text-on-surface-variant">Real-time velocity tracking, task latency scoring, and individual dispatch accuracy across warehouse shifts.</p>
+</div>
+<!-- Telemetry metric pills -->
+<div class="flex items-center gap-3 flex-wrap">
+<div class="flex items-center gap-2 bg-[#151F32] border border-[#1E293B] px-3.5 py-1.5 rounded-lg text-xs">
+<span class="text-outline uppercase tracking-wider">Active Pickers:</span>
+<span class="font-bold text-[#F8FAFC] text-sm tabular-nums">24</span>
+</div>
+<div class="flex items-center gap-2 bg-[#151F32] border border-[#1E293B] px-3.5 py-1.5 rounded-lg text-xs">
+<span class="text-outline uppercase tracking-wider">Avg Velocity:</span>
+<span class="font-bold text-[#38BDF8] text-sm tabular-nums">82.4%</span>
+</div>
+<div class="flex items-center gap-2 bg-[#151F32] border border-[#1E293B] px-3.5 py-1.5 rounded-lg text-xs">
+<span class="text-outline uppercase tracking-wider">Completed Orders:</span>
+<span class="font-bold text-[#22C55E] text-sm tabular-nums">2,840</span>
+</div>
+</div>
+</div>
+<!-- 3. Top Action & Filter Bar (Neatly aligned horizontal desktop toolbar) -->
+<section class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 shadow-sm">
+<div class="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+<!-- Search Input with Clear Button -->
+<div class="relative flex-1 min-w-[280px]">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+<input class="w-full bg-[#0B1120] border border-[#334155] rounded-lg pl-10 pr-10 py-2.5 text-[#F8FAFC] placeholder-[#64748B] text-sm focus:outline-none focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] transition-colors" id="picker-search-input" placeholder="Search by picker name or ID: P-xxxx..." type="text" value="P-10">
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-[#F8FAFC] p-1 rounded-md transition-colors" id="clear-search-btn" onclick="document.getElementById('picker-search-input').value=''; this.classList.add('hidden');" title="Clear search">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Filter & Sort Dropdowns + Action Group -->
+<div class="flex flex-wrap lg:flex-nowrap items-center gap-3">
+<!-- Performance Level Dropdown -->
+<div class="relative min-w-[190px] flex-1 sm:flex-initial">
+<label class="sr-only" for="perf-level-select">Performance Level</label>
+<select class="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 pr-8 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] appearance-none cursor-pointer" id="perf-level-select">
+<option selected="" value="all">All Levels</option>
+<option value="excellent">Excellent (90-100%)</option>
+<option value="very_good">Very Good (80-89%)</option>
+<option value="good">Good (70-79%)</option>
+<option value="average">Average (60-69%)</option>
+<option value="below_average">Below Average (50-59%)</option>
+<option value="low">Low Performance (&lt;50%)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]">tune</span>
+</div>
+<!-- Sort Dropdown -->
+<div class="relative min-w-[210px] flex-1 sm:flex-initial">
+<label class="sr-only" for="sort-select">Sort By</label>
+<select class="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 pr-8 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] appearance-none cursor-pointer" id="sort-select">
+<option selected="" value="perf_desc">Highest Performance (default)</option>
+<option value="perf_asc">Lowest Performance</option>
+<option value="alpha_asc">Picker Name A–Z</option>
+<option value="orders_desc">Most Orders</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]">sort</span>
+</div>
+<!-- Action buttons group: '+ Add Picker' & 'Remove Picker' -->
+<div class="flex items-center gap-2.5 w-full sm:w-auto">
+<!-- Secondary Destructive CTA: Remove Picker -->
+<button class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-[#F87171]/40 text-[#F87171] hover:bg-[#F87171]/10 hover:border-[#F87171] text-xs font-semibold transition-all duration-150 shadow-sm" onclick="document.getElementById('remove-picker-modal').classList.remove('hidden')" title="Decommission or remove existing picker">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+<span>Remove Picker</span>
+</button>
+<!-- Primary Action: + Add Picker -->
+<button class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#38BDF8] hover:bg-[#7DD3FC] text-[#0B1120] text-xs font-bold transition-all duration-150 shadow-md shadow-[#38BDF8]/20 whitespace-nowrap active:scale-[0.98]" onclick="document.getElementById('add-picker-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add</span>
+<span>+ Add Picker</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Active Filters Tag Strip -->
+<div class="mt-3 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<div class="flex items-center gap-2 flex-wrap">
+<span>Active Filter:</span>
+<span class="bg-[#1B2940] text-[#38BDF8] px-2.5 py-0.5 rounded border border-[#334155] inline-flex items-center gap-1">
+            Query: "P-10"
+            <button class="hover:text-[#F8FAFC]" onclick="document.getElementById('picker-search-input').value=''">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+<span class="bg-[#1B2940] text-on-surface px-2.5 py-0.5 rounded border border-[#334155]">
+            Tier: All Levels
+          </span>
+<span class="bg-[#1B2940] text-on-surface px-2.5 py-0.5 rounded border border-[#334155]">
+            Sort: Highest Performance
+          </span>
+</div>
+<span class="tabular-nums font-medium text-on-surface-variant">Showing 8 of 24 operators</span>
+</div>
+</section>
+<!-- 4. Responsive Picker Card Grid (Desktop grid showing 3 to 4 cards per row: grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5) -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+<!-- CARD 1: Ahmed Mansour (96% · Excellent) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#22C55E]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Ahmed Mansour', 'P-1042', '96%', 96, 'Excellent', '#22C55E', '142', '1m 45s', '22s', '48s', '8.65s', '2.1%', 'Zone A - Shelf 04')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1042</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Ahmed Mansour</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+            Excellent
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<!-- Circular SVG Ring -->
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#22C55E" stroke-dasharray="163.36" stroke-dashoffset="6.53" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">96%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#22C55E]">96% · Excellent</span>
+<span class="text-[11px] text-outline mt-0.5">Top 3 Floor Rank</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">142</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone A · Shift B</span>
+<span class="text-[#38BDF8] flex items-center gap-0.5 group-hover:underline font-medium">Telemetry <span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+</div>
+</div>
+<!-- CARD 2: Karim Tarek (93% · Excellent) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#22C55E]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Karim Tarek', 'P-1088', '93%', 93, 'Excellent', '#22C55E', '138', '1m 52s', '24s', '45s', '8.90s', '2.4%', 'Zone C - Shelf 11')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1088</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Karim Tarek</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+            Excellent
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#22C55E" stroke-dasharray="163.36" stroke-dashoffset="11.43" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">93%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#22C55E]">93% · Excellent</span>
+<span class="text-[11px] text-outline mt-0.5">Batch Leader</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">138</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone C · Shift B</span>
+<span class="text-[#38BDF8] flex items-center gap-0.5 group-hover:underline font-medium">Telemetry <span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+</div>
+</div>
+<!-- CARD 3: Omar Khaled (85% · Very Good) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#52e87c]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Omar Khaled', 'P-1094', '85%', 85, 'Very Good', '#52e87c', '119', '2m 04s', '28s', '52s', '9.40s', '2.8%', 'Zone B - Mezzanine')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1094</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Omar Khaled</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#52e87c]/15 text-[#52e87c] border border-[#52e87c]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#52e87c]"></span>
+            Very Good
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#52e87c" stroke-dasharray="163.36" stroke-dashoffset="24.50" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">85%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#52e87c]">85% · Very Good</span>
+<span class="text-[11px] text-outline mt-0.5">Stable Cadence</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">119</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone B · Shift B</span>
+<span class="text-[#38BDF8] flex items-center gap-0.5 group-hover:underline font-medium">Telemetry <span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+</div>
+</div>
+<!-- CARD 4: Ziad Ezzat (74% · Good) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#FDE047]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Ziad Ezzat', 'P-1021', '74%', 74, 'Good', '#FDE047', '98', '2m 18s', '31s', '58s', '10.2s', '3.2%', 'Zone D - Pallet Staging')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1021</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Ziad Ezzat</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#FDE047]/15 text-[#FDE047] border border-[#FDE047]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#FDE047]"></span>
+            Good
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#FDE047" stroke-dasharray="163.36" stroke-dashoffset="42.47" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">74%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#FDE047]">74% · Good</span>
+<span class="text-[11px] text-outline mt-0.5">Normal Ramp</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">98</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone D · Shift B</span>
+<span class="text-[#38BDF8] flex items-center gap-0.5 group-hover:underline font-medium">Telemetry <span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+</div>
+</div>
+<!-- CARD 5: Mahmoud Ali (62% · Average) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#FBBF24]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Mahmoud Ali', 'P-1065', '62%', 62, 'Average', '#FBBF24', '84', '2m 35s', '36s', '1m 02s', '11.5s', '3.9%', 'Zone A - Heavy Goods')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1065</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Mahmoud Ali</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#FBBF24]/15 text-[#FBBF24] border border-[#FBBF24]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></span>
+            Average
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#FBBF24" stroke-dasharray="163.36" stroke-dashoffset="62.07" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">62%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#FBBF24]">62% · Average</span>
+<span class="text-[11px] text-outline mt-0.5">Coaching Rec.</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">84</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone A · Shift B</span>
+<span class="text-[#38BDF8] flex items-center gap-0.5 group-hover:underline font-medium">Telemetry <span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+</div>
+</div>
+<!-- CARD 6: Tariq Nabil (54% · Below Average) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#FB923C]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Tariq Nabil', 'P-1051', '54%', 54, 'Below Average', '#FB923C', '68', '2m 55s', '42s', '1m 15s', '13.1s', '4.5%', 'Zone E - Bulk Staging')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1051</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Tariq Nabil</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#FB923C]/15 text-[#FB923C] border border-[#FB923C]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#FB923C]"></span>
+            Below Avg
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#FB923C" stroke-dasharray="163.36" stroke-dashoffset="75.14" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">54%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#FB923C]">54% · Below Avg</span>
+<span class="text-[11px] text-outline mt-0.5">Lagging Takt</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">68</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone E · Shift B</span>
+<span class="text-[#38BDF8] flex items-center gap-0.5 group-hover:underline font-medium">Telemetry <span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+</div>
+</div>
+<!-- CARD 7: Hany Samir (44% · Low Performance) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#F87171]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Hany Samir', 'P-1033', '44%', 44, 'Low Performance', '#F87171', '52', '3m 15s', '49s', '1m 24s', '14.2s', '5.8%', 'Zone F - Cold Storage')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1033</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Hany Samir</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#F87171]/15 text-[#F87171] border border-[#F87171]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#F87171]"></span>
+            Low
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#F87171" stroke-dasharray="163.36" stroke-dashoffset="91.48" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">44%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#F87171]">44% · Low Perf</span>
+<span class="text-[11px] text-[#F87171] font-semibold mt-0.5">Queue Bottleneck</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">52</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone F · Shift B</span>
+<span class="text-[#F87171] flex items-center gap-0.5 group-hover:underline font-semibold">Action Req <span class="material-symbols-outlined text-[14px]">warning</span></span>
+</div>
+</div>
+<!-- CARD 8: Dina Sameh (91% · Excellent) -->
+<div class="bg-[#151F32] border border-[#1E293B] hover:border-[#22C55E]/60 rounded-xl p-5 transition-all duration-200 cursor-pointer shadow-sm relative group hover:bg-[#18243A] hover:-translate-y-0.5" onclick="openTelemetryModal('Dina Sameh', 'P-1077', '91%', 91, 'Excellent', '#22C55E', '131', '1m 50s', '21s', '43s', '8.75s', '1.9%', 'Zone B - Mezzanine')">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="text-xs font-mono text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155] inline-block font-semibold">ID: P-1077</span>
+<h2 class="text-base font-bold text-[#F8FAFC] group-hover:text-[#38BDF8] transition-colors mt-1.5">Dina Sameh</h2>
+</div>
+<span class="h-6 px-2.5 rounded-full inline-flex items-center gap-1.5 text-[11px] uppercase font-bold bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+            Excellent
+          </span>
+</div>
+<div class="mt-5 flex items-center justify-between">
+<div class="flex items-center gap-3.5">
+<div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#1E293B" stroke-width="5.5"></circle>
+<circle cx="32" cy="32" fill="transparent" r="26" stroke="#22C55E" stroke-dasharray="163.36" stroke-dashoffset="14.70" stroke-linecap="round" stroke-width="5.5"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-sm font-bold text-[#F8FAFC] tabular-nums">91%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[11px] text-outline uppercase tracking-wider font-semibold">Velocity Score</span>
+<span class="text-xs font-bold text-[#22C55E]">91% · Excellent</span>
+<span class="text-[11px] text-outline mt-0.5">Low Re-route Rate</span>
+</div>
+</div>
+<div class="bg-[#0B1120] border border-[#1E293B] rounded-lg px-3 py-2 text-right min-w-[70px]">
+<span class="text-[10px] text-outline block uppercase tracking-wider">Orders</span>
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums leading-tight">131</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pin_drop</span> Zone B · Shift B</span>
+<span class="text-[#38BDF8] flex items-center gap-0.5 group-hover:underline font-medium">Telemetry <span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+</div>
+</div>
+</section>
+<!-- 6. Pagination Bar (20 per page, Previous / Next buttons, Page indicator) -->
+<section class="bg-[#151F32] border border-[#1E293B] rounded-xl px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-medium">
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span>Showing <strong class="text-[#F8FAFC] tabular-nums">1–8</strong> of <strong class="text-[#F8FAFC] tabular-nums">24</strong> pickers</span>
+<span class="text-outline">·</span>
+<span class="text-outline">Displaying <span class="text-[#F8FAFC] font-semibold">20 per page</span></span>
+</div>
+<div class="flex items-center gap-2">
+<!-- Previous Button (Disabled state demonstration) -->
+<button class="px-3 py-1.5 rounded-lg border border-[#1E293B] text-outline bg-[#0B1120]/60 cursor-not-allowed opacity-50 flex items-center gap-1" disabled="">
+<span class="material-symbols-outlined text-[16px]">chevron_left</span>
+<span>Previous</span>
+</button>
+<!-- Page indicator -->
+<span class="px-3 py-1.5 bg-[#1B2940] text-[#38BDF8] border border-[#334155] rounded-lg font-semibold tabular-nums">
+          Page 1 of 2
+        </span>
+<!-- Next Button -->
+<button class="px-3 py-1.5 rounded-lg border border-[#334155] bg-[#1B2940] hover:bg-[#223554] text-[#F8FAFC] flex items-center gap-1 transition-colors">
+<span>Next</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- System Diagnostic Preview Sandbox (Loaded / Empty / No Results previews) -->
+<section class="border-t border-[#1E293B] pt-6 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#38BDF8] text-[20px]">monitor_heart</span>
+<span class="text-sm font-bold text-[#F8FAFC]">System Diagnostic States (Live Sandbox)</span>
+</div>
+<span class="text-xs text-outline font-mono">Contract Spec v2.4</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- State A: Skeleton Loading State -->
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 space-y-3">
+<div class="flex items-center justify-between border-b border-[#1E293B] pb-2 text-xs">
+<span class="text-outline uppercase font-semibold">State: Loading Skeleton</span>
+<span class="w-2 h-2 rounded-full bg-[#38BDF8] animate-ping"></span>
+</div>
+<div class="animate-pulse space-y-3 pt-1">
+<div class="flex justify-between items-start">
+<div class="space-y-1.5">
+<div class="h-3 bg-[#1E293B] rounded w-16"></div>
+<div class="h-4 bg-[#1E293B] rounded w-28"></div>
+</div>
+<div class="h-5 bg-[#1E293B] rounded w-16"></div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="w-12 h-12 rounded-full bg-[#1E293B]"></div>
+<div class="h-8 bg-[#1E293B] rounded w-14"></div>
+</div>
+</div>
+</div>
+<!-- State B: Empty State (No picker data) -->
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2 min-h-[140px]">
+<span class="material-symbols-outlined text-outline text-[24px]">inbox</span>
+<div class="text-xs font-bold text-[#F8FAFC]">No picker data available</div>
+<p class="text-[11px] text-on-surface-variant max-w-xs">No active pickers assigned to Shift B at this terminal.</p>
+</div>
+<!-- State C: No Search Results -->
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2 min-h-[140px]">
+<span class="material-symbols-outlined text-[#FB923C] text-[24px]">search_off</span>
+<div class="text-xs font-bold text-[#F8FAFC]">No pickers found</div>
+<p class="text-[11px] text-on-surface-variant max-w-xs">No badge matches the current filter or query criteria.</p>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- ========================================================================= -->
+<!-- 5. REMOVE PICKER MODAL WORKFLOW -->
+<!-- ========================================================================= -->
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity" id="remove-picker-modal">
+<div class="bg-[#1B2940] border border-[#334155] rounded-xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+<!-- Modal Header -->
+<div class="px-5 py-4 bg-[#151F32] border-b border-[#334155] flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-[#F87171]/15 text-[#F87171] border border-[#F87171]/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">delete_outline</span>
+</div>
+<div>
+<h2 class="text-base font-bold text-[#F8FAFC]">Remove Picker</h2>
+<p class="text-xs text-on-surface-variant">De-register floor operator from Hub 04 active fleet</p>
+</div>
+</div>
+<button class="p-1 rounded text-outline hover:text-[#F8FAFC] hover:bg-[#1E293B]" onclick="document.getElementById('remove-picker-modal').classList.add('hidden')">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Modal Content -->
+<div class="p-5 space-y-4">
+<!-- Search input for existing pickers by name or ID -->
+<div>
+<label class="block text-xs font-semibold text-outline uppercase tracking-wider mb-1.5" for="remove-picker-search">
+          Locate Picker to Remove
+        </label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+<input class="w-full bg-[#0B1120] border border-[#334155] rounded-lg pl-9 pr-3 py-2 text-sm text-[#F8FAFC] placeholder-[#64748B] focus:outline-none focus:border-[#F87171] focus:ring-1 focus:ring-[#F87171]" id="remove-picker-search" placeholder="Search by picker name or badge ID (e.g. P-1033)..." type="text">
+</div>
+</div>
+<!-- Picker list with selection radio/cards showing Name and ID -->
+<div class="space-y-1.5">
+<span class="block text-xs font-semibold text-outline uppercase tracking-wider">Select Candidate:</span>
+<div class="max-h-48 overflow-y-auto space-y-2 pr-1">
+<!-- Option 1: Selected candidate (Hany Samir - Low Perf) -->
+<label class="flex items-center justify-between p-3 rounded-lg border-2 border-[#F87171] bg-[#0B1120] cursor-pointer transition-colors">
+<div class="flex items-center gap-3">
+<input checked="" class="text-[#F87171] focus:ring-[#F87171] bg-[#151F32] border-[#334155]" name="picker_to_remove" type="radio" value="P-1033">
+<div>
+<div class="text-sm font-bold text-[#F8FAFC]">Hany Samir</div>
+<div class="text-xs text-outline">Zone F · Shift B · 52 orders</div>
+</div>
+</div>
+<span class="text-xs font-mono font-bold text-[#F87171] bg-[#F87171]/10 px-2 py-0.5 rounded border border-[#F87171]/30">ID: P-1033</span>
+</label>
+<!-- Option 2: Tariq Nabil -->
+<label class="flex items-center justify-between p-3 rounded-lg border border-[#334155] bg-[#0B1120]/60 hover:bg-[#0B1120] cursor-pointer transition-colors">
+<div class="flex items-center gap-3">
+<input class="text-[#F87171] focus:ring-[#F87171] bg-[#151F32] border-[#334155]" name="picker_to_remove" type="radio" value="P-1051">
+<div>
+<div class="text-sm font-bold text-[#F8FAFC]">Tariq Nabil</div>
+<div class="text-xs text-outline">Zone E · Shift B · 68 orders</div>
+</div>
+</div>
+<span class="text-xs font-mono font-bold text-outline bg-[#151F32] px-2 py-0.5 rounded border border-[#334155]">ID: P-1051</span>
+</label>
+<!-- Option 3: Mahmoud Ali -->
+<label class="flex items-center justify-between p-3 rounded-lg border border-[#334155] bg-[#0B1120]/60 hover:bg-[#0B1120] cursor-pointer transition-colors">
+<div class="flex items-center gap-3">
+<input class="text-[#F87171] focus:ring-[#F87171] bg-[#151F32] border-[#334155]" name="picker_to_remove" type="radio" value="P-1065">
+<div>
+<div class="text-sm font-bold text-[#F8FAFC]">Mahmoud Ali</div>
+<div class="text-xs text-outline">Zone A · Shift B · 84 orders</div>
+</div>
+</div>
+<span class="text-xs font-mono font-bold text-outline bg-[#151F32] px-2 py-0.5 rounded border border-[#334155]">ID: P-1065</span>
+</label>
+</div>
+</div>
+<!-- Warning Banner -->
+<div class="bg-[#F87171]/10 border border-[#F87171]/30 rounded-lg p-3.5 flex items-start gap-3 text-[#F87171]">
+<span class="material-symbols-outlined text-[20px] flex-shrink-0 mt-0.5">warning</span>
+<div class="text-xs space-y-1">
+<span class="font-bold block uppercase tracking-wide">Destructive action notice</span>
+<p class="leading-relaxed text-[#ffdad6]">
+            Removing this picker will unassign their active shifts, revoke terminal device credentials, and archive all historical operational records.
+          </p>
+</div>
+</div>
+<!-- Pending backend contract notification badge -->
+<div class="flex items-center justify-between p-2.5 rounded bg-[#0B1120] border border-[#334155] text-[11px] text-outline">
+<span class="flex items-center gap-1.5 font-mono">
+<span class="w-1.5 h-1.5 rounded-full bg-[#38BDF8]"></span>
+          API CONTRACT: DELETE /v2/pickers/{id}
+        </span>
+<span class="text-[#38BDF8] font-semibold">Async Job Queue</span>
+</div>
+</div>
+<!-- Modal Actions -->
+<div class="px-5 py-3.5 bg-[#151F32] border-t border-[#334155] flex items-center justify-end gap-3">
+<button class="px-4 py-2 bg-[#0B1120] border border-[#334155] text-on-surface rounded-lg hover:bg-[#151F32] text-xs font-semibold transition-colors" onclick="document.getElementById('remove-picker-modal').classList.add('hidden')" type="button">
+        Cancel
+      </button>
+<!-- Remove Picker CTA with simulated action / loading state demonstration -->
+<button class="px-4 py-2 bg-[#F87171] hover:bg-[#EF4444] text-[#0B1120] font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-sm" id="confirm-remove-btn" onclick="executePickerRemoval()" type="button">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+<span id="remove-btn-text">Remove Picker</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ========================================================================= -->
+<!-- 6. PICKER DETAILS MODAL (Telemetry modal with exact 6 tiles) -->
+<!-- ========================================================================= -->
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity" id="picker-details-modal">
+<div class="bg-[#1B2940] border border-[#334155] rounded-xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+<!-- Header -->
+<div class="px-6 py-4 bg-[#151F32] border-b border-[#334155] flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">badge</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h2 class="text-lg font-bold text-[#F8FAFC]" id="modal-picker-name">Ahmed Mansour</h2>
+<span class="text-xs font-mono font-bold text-[#38BDF8] bg-[#0B1120] px-2 py-0.5 rounded border border-[#334155]" id="modal-picker-id">ID: P-1042</span>
+</div>
+<p class="text-xs text-on-surface-variant" id="modal-picker-zone">Active Zone: North Mezzanine (Rack Line 04)</p>
+</div>
+</div>
+<button aria-label="Close dialog" class="p-1.5 rounded-lg text-outline hover:text-[#F8FAFC] hover:bg-[#1E293B] transition-colors" onclick="document.getElementById('picker-details-modal').classList.add('hidden')">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Body -->
+<div class="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
+<!-- Performance Gauge Banner -->
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-5 flex flex-col sm:flex-row items-center gap-5">
+<div class="relative w-24 h-24 flex-shrink-0 flex items-center justify-center">
+<svg class="w-24 h-24 transform -rotate-90" viewBox="0 0 96 96">
+<circle cx="48" cy="48" fill="transparent" r="40" stroke="#1E293B" stroke-width="8"></circle>
+<circle cx="48" cy="48" fill="transparent" id="modal-svg-ring" r="40" stroke="#22C55E" stroke-dasharray="251.32" stroke-dashoffset="10.05" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-xl font-bold text-[#F8FAFC] tabular-nums" id="modal-ring-score">96%</span>
+</div>
+</div>
+<div class="space-y-1.5 text-center sm:text-left flex-1">
+<div id="modal-badge-container">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+              Tier 1 Excellence
+            </span>
+</div>
+<h3 class="text-base font-bold text-[#F8FAFC]">Operator Shift Telemetry Overview</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">Continuous barcode scan pacing, route adherence, and conveyor handoff metrics updated every 30 seconds from terminal RF scanners.</p>
+</div>
+</div>
+<!-- Metric Grid with EXACTLY 6 tiles -->
+<div>
+<h4 class="text-xs font-semibold uppercase text-outline tracking-wider mb-3">Shift Operational Telemetry (6 Core Metrics)</h4>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+<!-- Tile 1: Orders -->
+<div class="bg-[#0B1120] border border-[#334155] rounded-xl p-3.5">
+<span class="text-xs text-outline block">Orders</span>
+<span class="text-2xl font-bold text-[#F8FAFC] tabular-nums block mt-1" id="modal-metric-orders">142</span>
+<span class="text-[11px] text-[#22C55E] font-medium flex items-center gap-0.5 mt-1">
+<span class="material-symbols-outlined text-[13px]">trending_up</span> +14 vs avg
+            </span>
+</div>
+<!-- Tile 2: Picking Time -->
+<div class="bg-[#0B1120] border border-[#334155] rounded-xl p-3.5">
+<span class="text-xs text-outline block">Picking Time</span>
+<span class="text-2xl font-bold text-[#F8FAFC] tabular-nums block mt-1" id="modal-metric-picking">1m 45s</span>
+<span class="text-[11px] text-[#22C55E] font-medium flex items-center gap-0.5 mt-1">
+<span class="material-symbols-outlined text-[13px]">speed</span> -12s pace
+            </span>
+</div>
+<!-- Tile 3: Assignment Time -->
+<div class="bg-[#0B1120] border border-[#334155] rounded-xl p-3.5">
+<span class="text-xs text-outline block">Assignment Time</span>
+<span class="text-2xl font-bold text-[#F8FAFC] tabular-nums block mt-1" id="modal-metric-assign">22s</span>
+<span class="text-[11px] text-outline font-medium block mt-1">Queue &lt; 30s target</span>
+</div>
+<!-- Tile 4: Prep Time -->
+<div class="bg-[#0B1120] border border-[#334155] rounded-xl p-3.5">
+<span class="text-xs text-outline block">Prep Time</span>
+<span class="text-2xl font-bold text-[#F8FAFC] tabular-nums block mt-1" id="modal-metric-prep">48s</span>
+<span class="text-[11px] text-outline font-medium block mt-1">Tote initialization</span>
+</div>
+<!-- Tile 5: Dispatch Time -->
+<div class="bg-[#0B1120] border border-[#334155] rounded-xl p-3.5">
+<span class="text-xs text-outline block">Dispatch Time</span>
+<span class="text-2xl font-bold text-[#38BDF8] tabular-nums block mt-1" id="modal-metric-dispatch">8.65s</span>
+<span class="text-[11px] text-[#38BDF8] font-medium block mt-1">Top 5% Conveyor feed</span>
+</div>
+<!-- Tile 6: Ops CR -->
+<div class="bg-[#0B1120] border border-[#334155] rounded-xl p-3.5">
+<span class="text-xs text-outline block">Ops CR</span>
+<span class="text-2xl font-bold text-[#22C55E] tabular-nums block mt-1" id="modal-metric-opscr">2.1%</span>
+<span class="text-[11px] text-[#22C55E] font-medium block mt-1">Cancellation &lt; 3%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<div class="px-6 py-4 bg-[#151F32] border-t border-[#334155] flex justify-between items-center text-xs">
+<span class="text-outline">Terminal RF: Honeywell CT40 · Battery: 88%</span>
+<button class="bg-[#1B2940] hover:bg-[#223554] border border-[#334155] text-[#F8FAFC] font-semibold px-4 py-2 rounded-lg transition-colors" onclick="document.getElementById('picker-details-modal').classList.add('hidden')">
+        Close Telemetry
+      </button>
+</div>
+</div>
+</div>
+<!-- ========================================================================= -->
+<!-- 7. ADD PICKER MODAL (Strictly 2 fields + Duplicate validation warning) -->
+<!-- ========================================================================= -->
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity" id="add-picker-modal">
+<div class="bg-[#1B2940] border border-[#334155] rounded-xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+<!-- Header -->
+<div class="px-5 py-4 bg-[#151F32] border-b border-[#334155] flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+</div>
+<div>
+<h2 class="text-base font-bold text-[#F8FAFC]">Add New Floor Picker</h2>
+<p class="text-xs text-on-surface-variant">Register employee terminal credentials</p>
+</div>
+</div>
+<button class="p-1 rounded text-outline hover:text-[#F8FAFC]" onclick="document.getElementById('add-picker-modal').classList.add('hidden')">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Form Body -->
+<form class="p-5 space-y-4" onsubmit="event.preventDefault(); document.getElementById('add-picker-modal').classList.add('hidden');">
+<!-- Validation Warning Notice for duplicate IDs -->
+<div class="bg-[#F87171]/10 border border-[#F87171]/30 rounded-lg p-3 flex items-start gap-2.5 text-[#F87171]">
+<span class="material-symbols-outlined text-[18px] flex-shrink-0 mt-0.5">warning</span>
+<div class="text-xs leading-relaxed">
+<strong class="block font-bold">Validation Warning</strong>
+          Duplicate ID verification is active. Assigning an existing terminal badge number (e.g., P-1042) will reject synchronization.
+        </div>
+</div>
+<!-- Field 1: Picker ID -->
+<div>
+<label class="block text-xs font-semibold text-on-surface mb-1" for="picker-id-input">
+          Picker ID <span class="text-[#F87171]">*</span>
+</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">badge</span>
+<input class="w-full bg-[#0B1120] border border-[#334155] rounded-lg pl-9 pr-3 py-2 text-sm text-[#F8FAFC] placeholder-[#64748B] focus:outline-none focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]" id="picker-id-input" placeholder="e.g. P-1102" required="" type="text">
+</div>
+<span class="text-[11px] text-outline mt-1 block font-mono">Format: Capital P followed by hyphen and 4 digits (P-XXXX).</span>
+</div>
+<!-- Field 2: Picker Name -->
+<div>
+<label class="block text-xs font-semibold text-on-surface mb-1" for="picker-name-input">
+          Picker Name <span class="text-[#F87171]">*</span>
+</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">person</span>
+<input class="w-full bg-[#0B1120] border border-[#334155] rounded-lg pl-9 pr-3 py-2 text-sm text-[#F8FAFC] placeholder-[#64748B] focus:outline-none focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]" id="picker-name-input" placeholder="Full employee legal name" required="" type="text">
+</div>
+</div>
+<!-- Actions -->
+<div class="pt-2 flex items-center justify-end gap-2.5 border-t border-[#334155]">
+<button class="px-4 py-2 bg-[#0B1120] border border-[#334155] text-on-surface rounded-lg hover:bg-[#151F32] text-xs font-semibold transition-colors" onclick="document.getElementById('add-picker-modal').classList.add('hidden')" type="button">
+          Cancel
+        </button>
+<button class="px-4 py-2 bg-[#38BDF8] text-[#0B1120] font-bold rounded-lg hover:bg-[#7DD3FC] text-xs transition-colors shadow-md shadow-[#38BDF8]/20" type="submit">
+          Register Picker
+        </button>
+</div>
+</form>
+</div>
+</div>
+<!-- Bottom Navigation Bar for Mobile (Hidden on desktop) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-40 flex justify-around items-center h-16 px-2 bg-[#0D1527] border-t border-[#1E293B] shadow-2xl">
+<a class="flex flex-col items-center justify-center text-outline text-xs py-1 px-3" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="text-[10px] mt-0.5">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#38BDF8] font-bold text-xs py-1 px-3" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">speed</span>
+<span class="text-[10px] mt-0.5">Pickers</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline text-xs py-1 px-3" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+<span class="text-[10px] mt-0.5">KPIs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline text-xs py-1 px-3" href="#">
+<span class="material-symbols-outlined text-[20px]">tune</span>
+<span class="text-[10px] mt-0.5">Admin</span>
+</a>
+</nav>
+<!-- JavaScript for Interactive Demonstrations and Modal Handling -->
+<script>
+  // Function to open the telemetry modal with customized data
+  function openTelemetryModal(name, id, scoreText, scoreNum, levelText, colorHex, orders, pickTime, assignTime, prepTime, dispatchTime, opsCr, zone) {
+    document.getElementById('modal-picker-name').textContent = name;
+    document.getElementById('modal-picker-id').textContent = 'ID: ' + id;
+    document.getElementById('modal-picker-zone').textContent = 'Active Location: ' + zone;
+    document.getElementById('modal-ring-score').textContent = scoreText;
+
+    // SVG Ring calculate dashoffset
+    // Perimeter for r=40 is ~251.32
+    const perimeter = 251.32;
+    const offset = perimeter - (perimeter * (scoreNum / 100));
+    const ring = document.getElementById('modal-svg-ring');
+    ring.setAttribute('stroke', colorHex);
+    ring.setAttribute('stroke-dashoffset', offset);
+
+    // Set 6 metrics
+    document.getElementById('modal-metric-orders').textContent = orders;
+    document.getElementById('modal-metric-picking').textContent = pickTime;
+    document.getElementById('modal-metric-assign').textContent = assignTime;
+    document.getElementById('modal-metric-prep').textContent = prepTime;
+    document.getElementById('modal-metric-dispatch').textContent = dispatchTime;
+    document.getElementById('modal-metric-opscr').textContent = opsCr;
+
+    // Set badge
+    const badgeContainer = document.getElementById('modal-badge-container');
+    badgeContainer.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase" style="background-color: ${colorHex}22; color: ${colorHex}; border: 1px solid ${colorHex}55;">
+      <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${colorHex}"></span>
+      ${scoreText} · ${levelText}
+    </span>`;
+
+    document.getElementById('picker-details-modal').classList.remove('hidden');
+  }
+
+  // Removal action simulation with disabled/spinner state
+  function executePickerRemoval() {
+    const btn = document.getElementById('confirm-remove-btn');
+    const btnText = document.getElementById('remove-btn-text');
+
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-wait');
+    btnText.textContent = 'Removing...';
+
+    setTimeout(() => {
+      document.getElementById('remove-picker-modal').classList.add('hidden');
+      btn.disabled = false;
+      btn.classList.remove('opacity-75', 'cursor-wait');
+      btnText.textContent = 'Remove Picker';
+
+      // Show toast
+      const toast = document.getElementById('system-toast');
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 4000);
+    }, 900);
+  }
+
+  // Keyboard escape listeners
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      const detailsModal = document.getElementById('picker-details-modal');
+      const addModal = document.getElementById('add-picker-modal');
+      const removeModal = document.getElementById('remove-picker-modal');
+      if (detailsModal) detailsModal.classList.add('hidden');
+      if (addModal) addModal.classList.add('hidden');
+      if (removeModal) removeModal.classList.add('hidden');
+    }
+  });
+</script>
+</body></html>

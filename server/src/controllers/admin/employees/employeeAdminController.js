@@ -2,7 +2,10 @@ const employeeService = require("../../../services/employees/employeeService");
 
 async function createEmployee(req, res, next) {
   try {
-    const employee = await employeeService.createEmployee(req.body || {});
+    const employee = await employeeService.createEmployee(
+      req.body || {},
+      req.user,
+    );
     res.status(201).json(employee);
   } catch (error) {
     next(error);
@@ -14,6 +17,7 @@ async function updateEmployee(req, res, next) {
     const employee = await employeeService.updateEmployee(
       req.params.id,
       req.body || {},
+      req.user,
     );
     res.status(200).json(employee);
   } catch (error) {

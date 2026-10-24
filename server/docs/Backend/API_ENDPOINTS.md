@@ -928,15 +928,17 @@ If the employee has no latest performance record:
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | metricDate | string | yes | `YYYY-MM-DD` |
-| recordedAt | string | no | ISO 8601 datetime; must fall on the same date as `metricDate` |
-| opsCR | number | no | Must be > 0 |
-| dispatchTime | number | no | Must be > 0 |
-| prepTime | number | no | Must be > 0 |
-| assignmentTime | number | no | Must be > 0 |
+| recordedAt | string | no | ISO 8601 datetime; if present, the date portion must match `metricDate` |
+| opsCR | number | no | Optional; if the date does not yet exist, it is created with this value; if it already exists and the field is null, it can be filled; otherwise 409 |
+| dispatchTime | number | no | Optional; same rules as `opsCR` |
+| prepTime | number | no | Optional; same rules as `opsCR` |
+| assignmentTime | number | no | Optional; same rules as `opsCR` |
+
+> Upsert behavior: if `metricDate` does not exist, a new record is created with any provided fields and nulls for the rest. If the date already exists: values that are currently `null` may be filled in; values that already have a value trigger a `409 Conflict`.
 
 **Responses:**
 
-✅ 201 Created — Daily branch metric created or created-on-conflict where only new fields are added
+✅ 201 Created — Daily branch metric created or updated with any newly provided null fields
 ```json
 {
   "id": "f81221ac-c7b0-4a4d-b07f-f4254bb2cf14",
@@ -1039,9 +1041,9 @@ If the employee has no latest performance record:
     "metricDate": "2026-10-21T00:00:00.000Z",
     "recordedAt": "2026-10-21T08:15:00.000Z",
     "opsCR": 94.5,
-    "dispatchTime": 6.2,
+    "dispatchTime": null,
     "prepTime": 1.8,
-    "assignmentTime": 0.25,
+    "assignmentTime": null,
     "createdById": "4a5d7352-65d3-477a-9301-24a289f4d0db",
     "updatedById": null,
     "createdAt": "2026-10-21T09:00:00.000Z",
@@ -1049,6 +1051,8 @@ If the employee has no latest performance record:
   }
 ]
 ```
+
+> `opsCR`, `dispatchTime`, `prepTime`, and `assignmentTime` may be `null` for dates where a value has not been recorded yet.
 
 ❌ 401 Unauthorized — Missing or invalid token
 ```json
@@ -1090,21 +1094,24 @@ If the employee has no latest performance record:
 {
   "status": "success",
   "data": {
-    "metricDate": "2026-10-21",
-    "opsCR": 94.5,
-    "dispatchTime": 6.2,
-    "assignmentTime": 0.25,
+    "metricDate": "2026-10-16",
+    "opsCR": 0.02,
+    "dispatchTime": 4.5,
+    "assignmentTime": 0.15,
     "prepTime": 1.8,
+    "recordedAt": "2026-10-16T14:30:00.000Z",
     "score": {
-      "overall": 93.42,
-      "opsCR": 94.5,
-      "dispatchTime": 92.2,
-      "assignmentTime": 83.3,
-      "prepTime": 90.0
+      "overall": 100,
+      "opsCR": 100,
+      "dispatchTime": 100,
+      "assignmentTime": 100,
+      "prepTime": 100
     }
   }
 }
 ```
+
+> Metric values can be `null` when a category has not been recorded, even though the best-day payload still returns the date-level KPI summary.
 
 ❌ 401 Unauthorized — Missing or invalid token
 ```json
@@ -1151,15 +1158,17 @@ If the employee has no latest performance record:
   "metricDate": "2026-10-21T00:00:00.000Z",
   "recordedAt": "2026-10-21T08:15:00.000Z",
   "opsCR": 94.5,
-  "dispatchTime": 6.2,
+  "dispatchTime": null,
   "prepTime": 1.8,
-  "assignmentTime": 0.25,
+  "assignmentTime": null,
   "createdById": "4a5d7352-65d3-477a-9301-24a289f4d0db",
   "updatedById": null,
   "createdAt": "2026-10-21T09:00:00.000Z",
   "updatedAt": "2026-10-21T09:00:00.000Z"
 }
 ```
+
+> `opsCR`, `dispatchTime`, `prepTime`, and `assignmentTime` are nullable and may be returned as `null` for missing values.
 
 ❌ 400 Bad Request — Invalid date format
 ```json
@@ -1215,11 +1224,11 @@ If the employee has no latest performance record:
 **Request Body:**
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| opsCR | number | no | Must be > 0 |
-| dispatchTime | number | no | Must be > 0 |
-| prepTime | number | no | Must be > 0 |
-| assignmentTime | number | no | Must be > 0 |
-| recordedAt | string | no | ISO 8601 datetime |
+| opsCR | number | no | Optional; can be set to a value if the existing record has `null` at that field |
+| dispatchTime | number | no | Optional; can be set to a value if the existing record has `null` at that field |
+| prepTime | number | no | Optional; can be set to a value if the existing record has `null` at that field |
+| assignmentTime | number | no | Optional; can be set to a value if the existing record has `null` at that field |
+| recordedAt | string | no | ISO 8601 datetime; if present, the date portion must match `date` |
 
 **Responses:**
 

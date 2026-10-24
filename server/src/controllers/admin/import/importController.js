@@ -13,6 +13,7 @@ async function importEmployees(req, res, next) {
       req.file.path,
       req.file.originalname,
       req.user.id,
+      req.user,
     );
     fs.unlink(req.file.path, () => {});
     res.status(200).json(result);

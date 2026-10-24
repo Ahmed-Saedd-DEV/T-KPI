@@ -1,106 +1,33 @@
 "use strict";
 
-const prisma = require("../../prisma/prismaClient");
+const employeeRepository = require("../../repositories/employeeRepository");
 const { calculateKpiScore } = require("../../domain/kpi/kpiCalculator");
 const { buildSearchFilter } = require("../../utils/query/buildSearchFilter");
 const { buildScoreFilter } = require("../../utils/query/buildScoreFilter");
-
-function passesScoreFilter(kpi, scoreFilter) {
-  if (Object.keys(scoreFilter).length === 0) return true;
-
-  const { overallScore, scores } = kpi;
-
-  if (
-    scoreFilter.minScore !== undefined &&
-    (overallScore === null || overallScore < scoreFilter.minScore)
-  )
-    return false;
-  if (
-    scoreFilter.maxScore !== undefined &&
-    (overallScore === null || overallScore > scoreFilter.maxScore)
-  )
-    return false;
-  if (
-    scoreFilter.minOpsCR !== undefined &&
-    (scores.opsCR === null || scores.opsCR < scoreFilter.minOpsCR)
-  )
-    return false;
-  if (
-    scoreFilter.maxOpsCR !== undefined &&
-    (scores.opsCR === null || scores.opsCR > scoreFilter.maxOpsCR)
-  )
-    return false;
-  if (
-    scoreFilter.minDispatchTime !== undefined &&
-    (scores.dispatchTime === null ||
-      scores.dispatchTime < scoreFilter.minDispatchTime)
-  )
-    return false;
-  if (
-    scoreFilter.maxDispatchTime !== undefined &&
-    (scores.dispatchTime === null ||
-      scores.dispatchTime > scoreFilter.maxDispatchTime)
-  )
-    return false;
-  if (
-    scoreFilter.minPickingTime !== undefined &&
-    (scores.pickingTime === null ||
-      scores.pickingTime < scoreFilter.minPickingTime)
-  )
-    return false;
-  if (
-    scoreFilter.maxPickingTime !== undefined &&
-    (scores.pickingTime === null ||
-      scores.pickingTime > scoreFilter.maxPickingTime)
-  )
-    return false;
-  if (
-    scoreFilter.minAssignmentTime !== undefined &&
-    (scores.assignmentTime === null ||
-      scores.assignmentTime < scoreFilter.minAssignmentTime)
-  )
-    return false;
-  if (
-    scoreFilter.maxAssignmentTime !== undefined &&
-    (scores.assignmentTime === null ||
-      scores.assignmentTime > scoreFilter.maxAssignmentTime)
-  )
-    return false;
-  if (
-    scoreFilter.minPrepTime !== undefined &&
-    (scores.prepTime === null || scores.prepTime < scoreFilter.minPrepTime)
-  )
-    return false;
-  if (
-    scoreFilter.maxPrepTime !== undefined &&
-    (scores.prepTime === null || scores.prepTime > scoreFilter.maxPrepTime)
-  )
-    return false;
-
-  return true;
-}
+const { passesScoreFilter } = require("../../utils/query/passesScoreFilter");
+const {
+  buildSortComparator,
+} = require("../../utils/query/buildSortComparator");
 
 async function getEmployeeList(query = {}) {
+  const page = query.page === undefined ? 1 : Number(query.page);
+  const limit = query.limit === undefined ? 20 : Number(query.limit);
+  const skip = (page - 1) * limit;
   const searchFilter = buildSearchFilter(query.search);
   const scoreFilter = buildScoreFilter(query);
+  const sortBy =
+    query.sortBy === undefined
+      ? "score"
+      : String(query.sortBy).trim().toLowerCase();
+  const order =
+    query.order === undefined
+      ? "desc"
+      : String(query.order).trim().toLowerCase();
 
-  const employees = await prisma.employee.findMany({
-    where: searchFilter || undefined,
-    orderBy: { createdAt: "desc" },
-    include: {
-      performances: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        include: {
-          importBatch: {
-            select: { id: true, fileName: true, createdAt: true },
-          },
-        },
-      },
-    },
-  });
+  const employees =
+    await employeeRepository.getEmployeesWithLatestPerformance(searchFilter);
 
-  const results = [];
+  const scored = [];
 
   for (const employee of employees) {
     const latestPerformance = employee.performances[0] || null;
@@ -115,7 +42,7 @@ async function getEmployeeList(query = {}) {
         kpi: null,
       };
       if (Object.keys(scoreFilter).length === 0) {
-        results.push(entry);
+        scored.push(entry);
       }
       continue;
     }
@@ -132,7 +59,7 @@ async function getEmployeeList(query = {}) {
 
     if (!passesScoreFilter(kpi, scoreFilter)) continue;
 
-    results.push({
+    scored.push({
       id: employee.id,
       employeeCode: employee.employeeCode,
       name: employee.name,
@@ -142,18 +69,24 @@ async function getEmployeeList(query = {}) {
     });
   }
 
-  return results;
+  scored.sort(buildSortComparator(sortBy, order));
+
+  const paginated = scored.slice(skip, skip + limit);
+
+  return {
+    data: paginated,
+    pagination: {
+      total: scored.length,
+      page,
+      limit,
+      totalPages: Math.ceil(scored.length / limit),
+    },
+  };
 }
 
 async function getTopEmployees() {
-  const employees = await prisma.employee.findMany({
-    include: {
-      performances: {
-        orderBy: { periodStart: "desc" },
-        take: 1,
-      },
-    },
-  });
+  const employees =
+    await employeeRepository.getTopEmployeesWithLatestPerformance();
 
   const rankedEmployees = employees
     .map((employee) => {
@@ -177,6 +110,7 @@ async function getTopEmployees() {
         employeeId: employee.id,
         employeeCode: employee.employeeCode,
         name: employee.name,
+        orders: latestPerformance.orders,
         overallScore: kpi.overallScore,
         scores: kpi.scores,
         lastPeriod: new Date(latestPerformance.periodStart)

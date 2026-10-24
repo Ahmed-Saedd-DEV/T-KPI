@@ -1,0 +1,653 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Admin / Input - Picker Performance</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "background": "#0B1120",
+          "surface": "#0B1120",
+          "surface-card": "#151F32",
+          "surface-panel": "#1B2940",
+          "surface-highlight": "#243552",
+          "primary-cyan": "#38BDF8",
+          "primary": "#38BDF8",
+          "cyan-dim": "#0284C7",
+          "success-green": "#22C55E",
+          "tertiary": "#22C55E",
+          "error-red": "#F87171",
+          "error": "#F87171",
+          "border-subtle": "#1E2D44",
+          "border-muted": "#283953",
+          "text-main": "#F1F5F9",
+          "text-muted": "#94A3B8",
+          "text-dim": "#64748B"
+        },
+        fontFamily: {
+          sans: ["Inter", "sans-serif"],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .custom-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scroll::-webkit-scrollbar-track {
+    background: #0B1120;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb {
+    background: #1E2D44;
+    border-radius: 4px;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #283953;
+  }
+</style>
+</head>
+<body class="bg-background text-text-main font-sans min-h-screen flex antialiased selection:bg-primary-cyan selection:text-background">
+<!-- ================= DESKTOP PERSISTENT SIDEBAR (w-64) ================= -->
+<aside class="w-64 bg-[#0E1626] border-r border-border-subtle flex flex-col shrink-0 min-h-screen z-30 select-none">
+<!-- Brand Header -->
+<div class="h-16 flex items-center gap-3 px-6 border-b border-border-subtle">
+<div class="w-9 h-9 rounded-lg bg-primary-cyan/10 border border-primary-cyan/30 flex items-center justify-center text-primary-cyan shadow-sm shadow-primary-cyan/10">
+<span class="material-symbols-outlined text-xl">speed</span>
+</div>
+<div>
+<span class="font-bold text-sm tracking-wide text-white block">Picker Performance</span>
+<span class="text-[11px] font-medium text-text-dim block tracking-wider uppercase">Warehouse Ops v2.4</span>
+</div>
+</div>
+<!-- Navigation Menu -->
+<div class="px-3 py-5 flex-1 flex flex-col justify-between">
+<nav class="space-y-1">
+<div class="px-3 pb-2 text-[11px] font-semibold tracking-wider text-text-dim uppercase">Operations Hub</div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-muted hover:text-white hover:bg-surface-card transition-colors duration-150 group" href="#">
+<span class="material-symbols-outlined text-[20px] text-text-dim group-hover:text-primary-cyan transition-colors">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-muted hover:text-white hover:bg-surface-card transition-colors duration-150 group" href="#">
+<span class="material-symbols-outlined text-[20px] text-text-dim group-hover:text-primary-cyan transition-colors">bolt</span>
+<span class="text-sm font-medium">Picker Leaderboards</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-muted hover:text-white hover:bg-surface-card transition-colors duration-150 group" href="#">
+<span class="material-symbols-outlined text-[20px] text-text-dim group-hover:text-primary-cyan transition-colors">analytics</span>
+<span class="text-sm font-medium">Branch KPIs</span>
+</a>
+<div class="pt-4 px-3 pb-2 text-[11px] font-semibold tracking-wider text-text-dim uppercase">Administration</div>
+<!-- ACTIVE TAB -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary-cyan/10 text-primary-cyan border-l-2 border-primary-cyan font-semibold transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px] text-primary-cyan" style="font-variation-settings: 'FILL' 1;">tune</span>
+<span class="text-sm">Admin / Input</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-muted hover:text-white hover:bg-surface-card transition-colors duration-150 group" href="#">
+<span class="material-symbols-outlined text-[20px] text-text-dim group-hover:text-primary-cyan transition-colors">settings</span>
+<span class="text-sm font-medium">System Settings</span>
+</a>
+</nav>
+<!-- Node Telemetry Badge at Bottom of Sidebar -->
+<div class="p-3.5 rounded-xl bg-surface-card border border-border-subtle mt-6">
+<div class="flex items-center justify-between text-xs mb-1.5">
+<span class="text-text-muted font-medium">Node Telemetry</span>
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success-green/10 text-success-green text-[10px] font-bold border border-success-green/20">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green animate-pulse"></span>
+          ONLINE
+        </span>
+</div>
+<div class="text-xs text-white font-mono tracking-tight font-semibold flex items-center justify-between">
+<span>ELMONTAZA_DS-68</span>
+<span class="material-symbols-outlined text-[15px] text-text-dim">verified</span>
+</div>
+<div class="mt-2 pt-2 border-t border-border-subtle/80 flex items-center justify-between text-[11px] text-text-dim">
+<span>Ingest Pipe 04</span>
+<span class="text-primary-cyan font-mono">OK · 18ms</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- ================= MAIN VIEWPORT AREA ================= -->
+<div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+<!-- Desktop Top Header Bar -->
+<header class="h-16 bg-[#0E1626]/90 backdrop-blur border-b border-border-subtle flex items-center justify-between px-8 sticky top-0 z-20 shrink-0">
+<div class="flex items-center gap-3">
+<span class="text-text-dim text-sm font-medium">Warehouse Ops</span>
+<span class="text-border-muted text-sm">/</span>
+<h1 class="text-base font-bold text-white tracking-wide flex items-center gap-2">
+<span>Admin / Input</span>
+<span class="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-primary-cyan/10 text-primary-cyan border border-primary-cyan/20">Active Node: ELMONTAZA_DS-68</span>
+</h1>
+</div>
+<!-- Header Actions & Breadcrumb/System Status -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-surface-card border border-border-subtle text-xs">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-cyan opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary-cyan"></span>
+</span>
+<span class="text-text-muted font-medium">Hub Live: <span class="text-text-main font-semibold">1,280 Shifts Parsed</span></span>
+</div>
+<div class="h-5 w-px bg-border-subtle"></div>
+<button aria-label="Notifications" class="relative p-2 rounded-lg text-text-muted hover:text-white hover:bg-surface-card border border-transparent hover:border-border-subtle transition-all">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-primary-cyan rounded-full ring-2 ring-background"></span>
+</button>
+<div class="flex items-center gap-2.5 pl-2">
+<div class="w-8 h-8 rounded-full bg-surface-panel border border-border-muted flex items-center justify-center font-bold text-xs text-primary-cyan">
+          AD
+        </div>
+<div class="text-left hidden xl:block">
+<div class="text-xs font-semibold text-white leading-tight">Ops Admin</div>
+<div class="text-[10px] text-text-dim">Floor Supervisor</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Widescreen Desktop Main Content Canvas -->
+<main class="flex-1 overflow-y-auto px-8 py-6 custom-scroll">
+<div class="max-w-[1600px] mx-auto space-y-6">
+<!-- Header Content Banner & Subtitle -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-border-subtle">
+<div>
+<h2 class="text-2xl font-bold text-white tracking-tight">System Controls &amp; Data Ingestion</h2>
+<p class="text-sm text-text-muted mt-1 max-w-3xl">
+            Floor scanner ledger ingestion, roster performance metrics batch parser, and branch operational KPI manual overrides.
+          </p>
+</div>
+<div class="flex items-center gap-2 self-start md:self-auto text-xs bg-surface-card px-3 py-1.5 rounded-lg border border-border-subtle text-text-dim">
+<span class="material-symbols-outlined text-[16px] text-success-green">verified_user</span>
+<span>Role Authorized: Lead Station Controller</span>
+</div>
+</div>
+<!-- Clean Tab Bar with active indicators -->
+<div class="flex items-center justify-between border-b border-border-subtle">
+<div class="flex gap-2">
+<button class="flex items-center gap-2.5 px-5 py-3 text-sm font-semibold border-b-2 border-primary-cyan text-primary-cyan bg-surface-card/40 rounded-t-lg transition-all duration-150" id="tab-btn-import" onclick="switchTab('import')">
+<span class="material-symbols-outlined text-[19px]">upload_file</span>
+<span>Picker Performance Import</span>
+<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-primary-cyan/15 text-primary-cyan font-mono">Ready</span>
+</button>
+<button class="flex items-center gap-2.5 px-5 py-3 text-sm font-medium border-b-2 border-transparent text-text-muted hover:text-white hover:bg-surface-card/20 rounded-t-lg transition-all duration-150" id="tab-btn-kpi" onclick="switchTab('kpi')">
+<span class="material-symbols-outlined text-[19px]">fact_check</span>
+<span>Branch KPI Input</span>
+<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-surface-panel text-text-dim font-mono">6 KPIs</span>
+</button>
+</div>
+<div class="hidden sm:flex items-center gap-2 text-xs text-text-dim pb-2">
+<span class="w-2 h-2 rounded-full bg-success-green"></span>
+<span>Pipe Status: Ingestion Ready (Port 442)</span>
+</div>
+</div>
+<!-- ============================================================== -->
+<!-- TAB A: PICKER PERFORMANCE IMPORT (SIDE-BY-SIDE WIDESCREEN)     -->
+<!-- ============================================================== -->
+<div class="space-y-6" id="tab-content-import">
+<!-- Success Banner Preview -->
+<div class="bg-surface-card border border-success-green/30 rounded-xl p-4 flex items-start justify-between relative overflow-hidden shadow-lg shadow-black/20" id="upload-success-banner">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-success-green"></div>
+<div class="flex items-start gap-3.5 pl-1">
+<div class="w-9 h-9 rounded-lg bg-success-green/10 text-success-green flex items-center justify-center shrink-0 border border-success-green/20">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h4 class="text-sm font-bold text-white font-mono">Picker_Performance_Week42_2024.xlsx</h4>
+<span class="px-2 py-0.2 rounded text-[10px] font-semibold bg-success-green/15 text-success-green border border-success-green/30 uppercase tracking-wide">Committed</span>
+</div>
+<p class="text-xs text-text-muted mt-1 leading-relaxed">
+                Ingested <span class="text-white font-medium">1,280 shift performance logs</span>. Telemetry parsed, deduplicated, and dispatched to real-time picker velocity leaderboards.
+              </p>
+</div>
+</div>
+<button aria-label="Dismiss banner" class="text-text-dim hover:text-white p-1 rounded transition-colors" onclick="document.getElementById('upload-success-banner').remove()">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Desktop Widescreen Layout: 7 Cols Upload / 5 Cols Recent -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- Left Panel: Excel Upload Area (7 cols) -->
+<div class="lg:col-span-7 flex flex-col gap-5">
+<div class="bg-surface-card border border-border-subtle rounded-xl p-6 shadow-sm">
+<div class="flex items-center justify-between pb-4 border-b border-border-subtle">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-primary-cyan/10 text-primary-cyan flex items-center justify-center border border-primary-cyan/20">
+<span class="material-symbols-outlined text-[18px]">table_view</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-white">Data Sheet Ingestion</h3>
+<p class="text-xs text-text-muted">Import scanner shifts &amp; terminal dumps</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-surface-panel text-primary-cyan border border-border-muted font-mono">
+                    Target: ELMONTAZA_DS-68
+                  </span>
+</div>
+</div>
+<!-- Drag-and-drop & File Browser Upload Zone -->
+<div class="mt-5 border-2 border-dashed border-border-muted hover:border-primary-cyan/70 rounded-xl p-7 transition-all duration-200 bg-background/50 flex flex-col items-center justify-center text-center cursor-pointer group">
+<div class="w-14 h-14 rounded-2xl bg-surface-panel border border-border-subtle group-hover:border-primary-cyan group-hover:scale-105 flex items-center justify-center mb-3 transition-all text-primary-cyan shadow-inner">
+<span class="material-symbols-outlined text-3xl">upload_file</span>
+</div>
+<h4 class="text-sm font-semibold text-white mb-1">
+                  Drag &amp; drop Excel file (.xlsx, .xls) or browse
+                </h4>
+<p class="text-xs text-text-muted mb-4 max-w-sm">
+                  Drop operational ledger from scanner base stations or terminal dumps.
+                </p>
+<button class="px-4 py-2 rounded-lg bg-surface-panel hover:bg-surface-highlight text-white border border-border-muted hover:border-primary-cyan/50 text-xs font-semibold transition-all shadow-sm" type="button">
+                  Browse Machine Files
+                </button>
+<div class="mt-4 pt-3 border-t border-border-subtle/70 w-full max-w-xs flex items-center justify-center gap-1.5 text-[11px] text-text-dim">
+<span class="material-symbols-outlined text-[15px] text-text-dim">info</span>
+<span>Supported formats: .xlsx, .xls (Max: 25MB)</span>
+</div>
+</div>
+<!-- Selected File Details Card -->
+<div class="mt-5 p-4 bg-surface-panel rounded-xl border border-border-subtle space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-lg bg-success-green/10 border border-success-green/20 flex items-center justify-center text-success-green shrink-0">
+<span class="material-symbols-outlined text-[22px]">description</span>
+</div>
+<div class="truncate">
+<p class="text-sm font-semibold text-white truncate font-mono">Picker_Performance_Week42_2024.xlsx</p>
+<div class="flex items-center gap-2 mt-0.5 text-xs text-text-muted">
+<span class="font-medium">2.4 MB</span>
+<span class="text-border-muted">•</span>
+<span class="text-primary-cyan font-medium">Ready for parser execution</span>
+</div>
+</div>
+</div>
+<button class="text-text-dim hover:text-error-red p-2 rounded-lg hover:bg-surface-card transition-colors" title="Clear staged file" type="button">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+<!-- Upload Progress Bar (85% Uploading...) -->
+<div class="pt-2">
+<div class="flex items-center justify-between text-xs mb-1.5">
+<span class="text-primary-cyan font-semibold flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-cyan animate-pulse"></span>
+                      85% Uploading...
+                    </span>
+<span class="tabular-nums font-mono text-text-muted text-xs">2.04 MB / 2.40 MB</span>
+</div>
+<div class="w-full bg-surface-card rounded-full h-2 overflow-hidden border border-border-subtle">
+<div class="bg-primary-cyan h-2 rounded-full transition-all duration-300 shadow-sm shadow-primary-cyan/50" style="width: 85%"></div>
+</div>
+</div>
+</div>
+<!-- Explicit Action Controls (Does NOT auto-upload) -->
+<div class="mt-6 pt-4 border-t border-border-subtle flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-2 text-xs text-text-muted">
+<span class="material-symbols-outlined text-[16px] text-success-green">lock</span>
+<span>MD5 Hash check enabled before commit</span>
+</div>
+<div class="flex items-center gap-3 ml-auto">
+<button class="px-4 py-2 rounded-lg bg-surface-panel hover:bg-surface-highlight text-text-muted hover:text-white border border-border-muted text-xs font-semibold transition-all" type="button">
+                    Clear
+                  </button>
+<button class="px-6 py-2 rounded-lg bg-primary-cyan hover:bg-[#0284C7] text-background font-bold text-xs shadow-md shadow-primary-cyan/20 transition-all flex items-center gap-2" type="button">
+<span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+<span>Upload</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Inline File Validation Badges -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+<div class="bg-surface-card border border-border-subtle p-3.5 rounded-xl flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary-cyan/10 text-primary-cyan flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">rule</span>
+</div>
+<div>
+<div class="text-xs font-semibold text-white">Schema Matching</div>
+<div class="text-[11px] text-text-dim">Columns A:H verified</div>
+</div>
+</div>
+<div class="bg-surface-card border border-border-subtle p-3.5 rounded-xl flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-success-green/10 text-success-green flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">fact_check</span>
+</div>
+<div>
+<div class="text-xs font-semibold text-white">Deduplication</div>
+<div class="text-[11px] text-text-dim">Picks indexed by UUID</div>
+</div>
+</div>
+<div class="bg-surface-card border border-border-subtle p-3.5 rounded-xl flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#38BDF8]/10 text-primary-cyan flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+</div>
+<div>
+<div class="text-xs font-semibold text-white">Auto Aggregation</div>
+<div class="text-[11px] text-text-dim">Hourly PPH calculated</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Panel: Recent Successful Uploads Side Panel (5 cols) -->
+<div class="lg:col-span-5 bg-surface-card border border-border-subtle rounded-xl p-6 flex flex-col justify-between shadow-sm">
+<div>
+<div class="flex items-center justify-between pb-3.5 border-b border-border-subtle">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-success-green text-[20px]">history</span>
+<div>
+<h3 class="text-sm font-bold text-white">Recent Successful Uploads</h3>
+<p class="text-[11px] text-text-muted">Showing latest 10 shift batch uploads</p>
+</div>
+</div>
+<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-panel text-text-dim border border-border-muted">Audit Log</span>
+</div>
+<!-- List of Recent Uploads -->
+<div class="divide-y divide-border-subtle mt-1">
+<!-- Item 1 -->
+<div class="py-3 flex items-center justify-between gap-3 group">
+<div class="min-w-0">
+<p class="text-xs font-mono font-medium text-white truncate group-hover:text-primary-cyan transition-colors">Picker_Performance_18Oct.xlsx</p>
+<p class="text-[11px] text-text-dim tabular-nums mt-0.5">18 Oct 2024 16:30 • 2.4 MB</p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-success-green/10 text-success-green border border-success-green/20 shrink-0">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span>
+                    Success
+                  </span>
+</div>
+<!-- Item 2 -->
+<div class="py-3 flex items-center justify-between gap-3 group">
+<div class="min-w-0">
+<p class="text-xs font-mono font-medium text-white truncate group-hover:text-primary-cyan transition-colors">Picker_Performance_17Oct.xlsx</p>
+<p class="text-[11px] text-text-dim tabular-nums mt-0.5">17 Oct 2024 16:15 • 2.1 MB</p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-success-green/10 text-success-green border border-success-green/20 shrink-0">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span>
+                    Success
+                  </span>
+</div>
+<!-- Item 3 -->
+<div class="py-3 flex items-center justify-between gap-3 group">
+<div class="min-w-0">
+<p class="text-xs font-mono font-medium text-white truncate group-hover:text-primary-cyan transition-colors">Picker_Performance_16Oct.xlsx</p>
+<p class="text-[11px] text-text-dim tabular-nums mt-0.5">16 Oct 2024 17:02 • 2.3 MB</p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-success-green/10 text-success-green border border-success-green/20 shrink-0">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span>
+                    Success
+                  </span>
+</div>
+<!-- Item 4 -->
+<div class="py-3 flex items-center justify-between gap-3 group">
+<div class="min-w-0">
+<p class="text-xs font-mono font-medium text-white truncate group-hover:text-primary-cyan transition-colors">Picker_Performance_15Oct.xlsx</p>
+<p class="text-[11px] text-text-dim tabular-nums mt-0.5">15 Oct 2024 16:45 • 2.2 MB</p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-success-green/10 text-success-green border border-success-green/20 shrink-0">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span>
+                    Success
+                  </span>
+</div>
+</div>
+<!-- Empty State Preview Collapsible Widget (Subtle reference preview) -->
+<div class="mt-4 p-3 rounded-lg bg-surface-panel/40 border border-border-subtle/60 text-center">
+<div class="flex items-center justify-center gap-2 text-text-dim text-xs">
+<span class="material-symbols-outlined text-[16px]">folder_off</span>
+<span>Archived batches older than 30 days stored in Cold Tier</span>
+</div>
+</div>
+</div>
+<!-- Panel Footer / Audit Stats -->
+<div class="pt-4 mt-6 border-t border-border-subtle flex items-center justify-between text-xs text-text-muted">
+<span>Showing 4 of 10 audit rows</span>
+<a class="text-primary-cyan hover:underline font-semibold flex items-center gap-1" href="#">
+<span>Export Audit Log</span>
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- ============================================================== -->
+<!-- TAB B: BRANCH KPI INPUT (RESPONSIVE GRID DESKTOP PREVIEW)      -->
+<!-- ============================================================== -->
+<div class="space-y-6 hidden" id="tab-content-kpi">
+<!-- Toast / Visual Feedback Banner -->
+<div class="bg-surface-card border border-primary-cyan/40 rounded-xl p-4 flex items-start justify-between relative overflow-hidden shadow-lg shadow-black/20" id="kpi-save-banner">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary-cyan"></div>
+<div class="flex items-start gap-3.5 pl-1">
+<div class="w-9 h-9 rounded-lg bg-primary-cyan/10 text-primary-cyan flex items-center justify-center shrink-0 border border-primary-cyan/25">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">save</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h4 class="text-sm font-bold text-white">CR value saved successfully for 2024-10-18</h4>
+<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-success-green/15 text-success-green border border-success-green/30">Committed</span>
+</div>
+<p class="text-xs text-text-muted mt-1">
+                Atomic update committed. Other forms (PREP, ORDER, ATVENDOR, Adjust, Dispatch) and selected KPI Date were preserved in buffer state.
+              </p>
+</div>
+</div>
+<button aria-label="Dismiss banner" class="text-text-dim hover:text-white p-1 rounded transition-colors" onclick="document.getElementById('kpi-save-banner').remove()">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Global Header Bar: Fixed Branch & Shared Date Field -->
+<div class="bg-surface-card border border-border-subtle rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+<!-- Fixed Branch Badge (No Branch Selector) -->
+<div class="flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-xl bg-surface-panel border border-border-muted flex items-center justify-center text-primary-cyan">
+<span class="material-symbols-outlined text-2xl">warehouse</span>
+</div>
+<div>
+<span class="text-[11px] font-bold text-text-dim tracking-wider uppercase block">Operational Target Facility</span>
+<div class="flex items-center gap-2 mt-0.5">
+<span class="text-base font-bold font-mono text-white">Branch: ELMONTAZA_DS-68</span>
+<span class="px-2 py-0.5 rounded text-[10px] bg-primary-cyan/15 text-primary-cyan border border-primary-cyan/30 font-semibold uppercase">Fixed Context</span>
+</div>
+</div>
+</div>
+<!-- Shared Date Field (Prominent, Mandatory for Saving) -->
+<div class="flex items-center gap-3 bg-surface-panel p-2.5 rounded-xl border border-border-muted">
+<label class="text-xs font-semibold text-text-muted flex items-center gap-2 pl-2" for="shared-kpi-date">
+<span class="material-symbols-outlined text-primary-cyan text-[18px]">calendar_today</span>
+<span>Select KPI Date:</span>
+</label>
+<div class="relative">
+<input class="bg-background border border-border-muted focus:border-primary-cyan focus:ring-1 focus:ring-primary-cyan text-white text-xs font-mono font-semibold rounded-lg px-3 py-1.5 outline-none transition-all cursor-pointer" id="shared-kpi-date" required="" type="date" value="2024-10-18">
+</div>
+<div class="flex items-center gap-1 text-[11px] text-primary-cyan font-medium pr-2">
+<span class="text-error-red">*</span>
+<span>Mandatory for saves</span>
+</div>
+</div>
+</div>
+<!-- Six Independent KPI Forms in EXACT order (CR, PREP, ORDER, ATVENDOR, Adjust, Dispatch) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+<!-- 1. CR Form -->
+<div class="bg-surface-card border border-border-subtle rounded-xl p-5 flex flex-col justify-between hover:border-border-muted transition-all shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-mono font-bold text-primary-cyan bg-surface-panel px-2.5 py-0.5 rounded border border-border-muted">01 / KPI</span>
+<span class="text-[11px] text-text-dim font-medium">Customer Return Index</span>
+</div>
+<h4 class="text-lg font-bold text-white">CR</h4>
+<p class="text-xs text-text-muted mt-0.5 mb-4 leading-normal">Customer Return rate ratio recorded for daily shift batches.</p>
+<div class="space-y-1.5">
+<label class="text-[11px] font-semibold text-text-dim uppercase tracking-wider block">Numeric Input Value</label>
+<div class="relative">
+<input class="w-full bg-background border border-border-muted focus:border-primary-cyan focus:ring-1 focus:ring-primary-cyan text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all" step="0.01" type="number" value="3.25">
+<span class="absolute right-3 top-2.5 text-xs font-semibold text-text-dim font-mono">%</span>
+</div>
+</div>
+</div>
+<div class="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between">
+<span class="text-xs text-success-green flex items-center gap-1.5 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-success-green"></span>
+                Saved 18 Oct
+              </span>
+<button class="px-4 py-1.5 rounded-lg bg-surface-panel hover:bg-surface-highlight text-primary-cyan border border-border-muted hover:border-primary-cyan/50 text-xs font-bold transition-all active:scale-95" type="button">
+                Save CR
+              </button>
+</div>
+</div>
+<!-- 2. PREP Form -->
+<div class="bg-surface-card border border-border-subtle rounded-xl p-5 flex flex-col justify-between hover:border-border-muted transition-all shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-mono font-bold text-primary-cyan bg-surface-panel px-2.5 py-0.5 rounded border border-border-muted">02 / KPI</span>
+<span class="text-[11px] text-text-dim font-medium">Minutes Average</span>
+</div>
+<h4 class="text-lg font-bold text-white">PREP</h4>
+<p class="text-xs text-text-muted mt-0.5 mb-4 leading-normal">Preparation cycle time elapsed per fulfilled batch tote.</p>
+<div class="space-y-1.5">
+<label class="text-[11px] font-semibold text-text-dim uppercase tracking-wider block">Numeric Input Value</label>
+<div class="relative">
+<input class="w-full bg-background border border-border-muted focus:border-primary-cyan focus:ring-1 focus:ring-primary-cyan text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all" step="0.1" type="number" value="42.4">
+<span class="absolute right-3 top-2.5 text-xs font-semibold text-text-dim font-mono">m</span>
+</div>
+</div>
+</div>
+<div class="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between">
+<span class="text-xs text-text-dim font-medium">Unsaved buffer</span>
+<button class="px-4 py-1.5 rounded-lg bg-surface-panel hover:bg-surface-highlight text-primary-cyan border border-border-muted hover:border-primary-cyan/50 text-xs font-bold transition-all active:scale-95" type="button">
+                Save PREP
+              </button>
+</div>
+</div>
+<!-- 3. ORDER Form -->
+<div class="bg-surface-card border border-border-subtle rounded-xl p-5 flex flex-col justify-between hover:border-border-muted transition-all shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-mono font-bold text-primary-cyan bg-surface-panel px-2.5 py-0.5 rounded border border-border-muted">03 / KPI</span>
+<span class="text-[11px] text-text-dim font-medium">Count Volume</span>
+</div>
+<h4 class="text-lg font-bold text-white">ORDER</h4>
+<p class="text-xs text-text-muted mt-0.5 mb-4 leading-normal">Total line order volume fulfilled through warehouse sort lines.</p>
+<div class="space-y-1.5">
+<label class="text-[11px] font-semibold text-text-dim uppercase tracking-wider block">Numeric Input Value</label>
+<div class="relative">
+<input class="w-full bg-background border border-border-muted focus:border-primary-cyan focus:ring-1 focus:ring-primary-cyan text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all" step="1" type="number" value="1420">
+<span class="absolute right-3 top-2.5 text-xs font-semibold text-text-dim font-mono">qty</span>
+</div>
+</div>
+</div>
+<div class="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between">
+<span class="text-xs text-text-dim font-medium">Unsaved buffer</span>
+<button class="px-4 py-1.5 rounded-lg bg-surface-panel hover:bg-surface-highlight text-primary-cyan border border-border-muted hover:border-primary-cyan/50 text-xs font-bold transition-all active:scale-95" type="button">
+                Save ORDER
+              </button>
+</div>
+</div>
+<!-- 4. ATVENDOR Form -->
+<div class="bg-surface-card border border-border-subtle rounded-xl p-5 flex flex-col justify-between hover:border-border-muted transition-all shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-mono font-bold text-primary-cyan bg-surface-panel px-2.5 py-0.5 rounded border border-border-muted">04 / KPI</span>
+<span class="text-[11px] text-text-dim font-medium">Hours Window</span>
+</div>
+<h4 class="text-lg font-bold text-white">ATVENDOR</h4>
+<p class="text-xs text-text-muted mt-0.5 mb-4 leading-normal">Dock turnaround elapsed window for direct vendor deliveries.</p>
+<div class="space-y-1.5">
+<label class="text-[11px] font-semibold text-text-dim uppercase tracking-wider block">Numeric Input Value</label>
+<div class="relative">
+<input class="w-full bg-background border border-border-muted focus:border-primary-cyan focus:ring-1 focus:ring-primary-cyan text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all" step="0.1" type="number" value="18.2">
+<span class="absolute right-3 top-2.5 text-xs font-semibold text-text-dim font-mono">hrs</span>
+</div>
+</div>
+</div>
+<div class="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between">
+<span class="text-xs text-text-dim font-medium">Unsaved buffer</span>
+<button class="px-4 py-1.5 rounded-lg bg-surface-panel hover:bg-surface-highlight text-primary-cyan border border-border-muted hover:border-primary-cyan/50 text-xs font-bold transition-all active:scale-95" type="button">
+                Save ATVENDOR
+              </button>
+</div>
+</div>
+<!-- 5. Adjust Form -->
+<div class="bg-surface-card border border-border-subtle rounded-xl p-5 flex flex-col justify-between hover:border-border-muted transition-all shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-mono font-bold text-primary-cyan bg-surface-panel px-2.5 py-0.5 rounded border border-border-muted">05 / KPI</span>
+<span class="text-[11px] text-text-dim font-medium">Inventory Skew</span>
+</div>
+<h4 class="text-lg font-bold text-white">Adjust</h4>
+<p class="text-xs text-text-muted mt-0.5 mb-4 leading-normal">Physical cycle audit adjustment discrepancies logged per cycle count.</p>
+<div class="space-y-1.5">
+<label class="text-[11px] font-semibold text-text-dim uppercase tracking-wider block">Numeric Input Value</label>
+<div class="relative">
+<input class="w-full bg-background border border-border-muted focus:border-primary-cyan focus:ring-1 focus:ring-primary-cyan text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-12 transition-all" step="1" type="number" value="14">
+<span class="absolute right-3 top-2.5 text-xs font-semibold text-text-dim font-mono">units</span>
+</div>
+</div>
+</div>
+<div class="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between">
+<span class="text-xs text-text-dim font-medium">Unsaved buffer</span>
+<button class="px-4 py-1.5 rounded-lg bg-surface-panel hover:bg-surface-highlight text-primary-cyan border border-border-muted hover:border-primary-cyan/50 text-xs font-bold transition-all active:scale-95" type="button">
+                Save Adjust
+              </button>
+</div>
+</div>
+<!-- 6. Dispatch Form -->
+<div class="bg-surface-card border border-border-subtle rounded-xl p-5 flex flex-col justify-between hover:border-border-muted transition-all shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-xs font-mono font-bold text-primary-cyan bg-surface-panel px-2.5 py-0.5 rounded border border-border-muted">06 / KPI</span>
+<span class="text-[11px] text-text-dim font-medium">Throughput Speed</span>
+</div>
+<h4 class="text-lg font-bold text-white">Dispatch</h4>
+<p class="text-xs text-text-muted mt-0.5 mb-4 leading-normal">Loading bay velocity index calculated from picker handoff to transport trailer.</p>
+<div class="space-y-1.5">
+<label class="text-[11px] font-semibold text-text-dim uppercase tracking-wider block">Numeric Input Value</label>
+<div class="relative">
+<input class="w-full bg-background border border-border-muted focus:border-primary-cyan focus:ring-1 focus:ring-primary-cyan text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all" step="0.01" type="number" value="8.65">
+<span class="absolute right-3 top-2.5 text-xs font-semibold text-text-dim font-mono">idx</span>
+</div>
+</div>
+</div>
+<div class="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between">
+<span class="text-xs text-text-dim font-medium">Unsaved buffer</span>
+<button class="px-4 py-1.5 rounded-lg bg-surface-panel hover:bg-surface-highlight text-primary-cyan border border-border-muted hover:border-primary-cyan/50 text-xs font-bold transition-all active:scale-95" type="button">
+                Save Dispatch
+              </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Tab Switching Script -->
+<script>
+  function switchTab(tab) {
+    const importContent = document.getElementById('tab-content-import');
+    const kpiContent = document.getElementById('tab-content-kpi');
+    const btnImport = document.getElementById('tab-btn-import');
+    const btnKpi = document.getElementById('tab-btn-kpi');
+
+    if (tab === 'import') {
+      importContent.classList.remove('hidden');
+      kpiContent.classList.add('hidden');
+      
+      btnImport.className = "flex items-center gap-2.5 px-5 py-3 text-sm font-semibold border-b-2 border-primary-cyan text-primary-cyan bg-surface-card/40 rounded-t-lg transition-all duration-150";
+      btnKpi.className = "flex items-center gap-2.5 px-5 py-3 text-sm font-medium border-b-2 border-transparent text-text-muted hover:text-white hover:bg-surface-card/20 rounded-t-lg transition-all duration-150";
+    } else {
+      kpiContent.classList.remove('hidden');
+      importContent.classList.add('hidden');
+
+      btnKpi.className = "flex items-center gap-2.5 px-5 py-3 text-sm font-semibold border-b-2 border-primary-cyan text-primary-cyan bg-surface-card/40 rounded-t-lg transition-all duration-150";
+      btnImport.className = "flex items-center gap-2.5 px-5 py-3 text-sm font-medium border-b-2 border-transparent text-text-muted hover:text-white hover:bg-surface-card/20 rounded-t-lg transition-all duration-150";
+    }
+  }
+</script>
+</body></html>

@@ -4,20 +4,14 @@ module.exports = {
   "/admin/metrics/daily": {
     post: {
       tags: ["Admin - Metrics"],
-      summary: "Create a daily branch metric",
+      summary: "Create or update a daily branch metric",
       requestBody: {
         required: true,
         content: {
           "application/json": {
             schema: {
               type: "object",
-              required: [
-                "metricDate",
-                "opsCR",
-                "dispatchTime",
-                "prepTime",
-                "assignmentTime",
-              ],
+              required: ["metricDate"],
               properties: {
                 metricDate: {
                   type: "string",
@@ -28,11 +22,27 @@ module.exports = {
                   type: "string",
                   format: "date-time",
                   example: "2026-10-16T14:30:00.000Z",
+                  nullable: true,
                 },
-                opsCR: { type: "number" },
-                dispatchTime: { type: "number" },
-                prepTime: { type: "number" },
-                assignmentTime: { type: "number" },
+                opsCR: { type: "number", nullable: true },
+                dispatchTime: { type: "number", nullable: true },
+                prepTime: { type: "number", nullable: true },
+                assignmentTime: { type: "number", nullable: true },
+                orderCount: {
+                  type: "number",
+                  nullable: true,
+                  description: "Daily order count",
+                },
+                atVendorTime: {
+                  type: "number",
+                  nullable: true,
+                  description: "Average time at vendor in minutes",
+                },
+                adjustTime: {
+                  type: "number",
+                  nullable: true,
+                  description: "Adjustment time in minutes",
+                },
               },
             },
           },
@@ -40,7 +50,15 @@ module.exports = {
       },
       responses: {
         201: {
-          description: "Metric created",
+          description: "New metric record created",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/BranchDailyMetric" },
+            },
+          },
+        },
+        200: {
+          description: "Existing metric record updated (null field was filled)",
           content: {
             "application/json": {
               schema: { $ref: "#/components/schemas/BranchDailyMetric" },
@@ -50,7 +68,10 @@ module.exports = {
         400: { description: "Invalid data" },
         401: { description: "Unauthorized" },
         403: { description: "Forbidden" },
-        409: { description: "Metric already exists for this date" },
+        409: {
+          description:
+            "Field(s) already have a value: <fieldName>. Use PATCH to update.",
+        },
       },
     },
     get: {
@@ -61,13 +82,13 @@ module.exports = {
           name: "from",
           in: "query",
           schema: { type: "string", format: "date" },
-          example: "2026-10-01",
+          example: "2026-10-16",
         },
         {
           name: "to",
           in: "query",
           schema: { type: "string", format: "date" },
-          example: "2026-10-31",
+          example: "2026-10-22",
         },
       ],
       responses: {
@@ -78,23 +99,39 @@ module.exports = {
               schema: {
                 type: "array",
                 items: {
-                  allOf: [
-                    { $ref: "#/components/schemas/BranchDailyMetric" },
-                    {
-                      type: "object",
-                      properties: {
-                        recordedAt: {
-                          type: "string",
-                          format: "date-time",
-                          nullable: true,
-                        },
-                      },
+                  type: "object",
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    metricDate: { type: "string", format: "date" },
+                    recordedAt: {
+                      type: "string",
+                      format: "date-time",
+                      nullable: true,
                     },
-                  ],
+                    opsCR: { type: "number", nullable: true },
+                    dispatchTime: { type: "number", nullable: true },
+                    prepTime: { type: "number", nullable: true },
+                    assignmentTime: { type: "number", nullable: true },
+                    orderCount: { type: "number", nullable: true },
+                    atVendorTime: { type: "number", nullable: true },
+                    adjustTime: { type: "number", nullable: true },
+                    createdById: { type: "string", format: "uuid" },
+                    updatedById: {
+                      type: "string",
+                      format: "uuid",
+                      nullable: true,
+                    },
+                    createdAt: { type: "string", format: "date-time" },
+                    updatedAt: { type: "string", format: "date-time" },
+                  },
                 },
               },
             },
           },
+        },
+        400: {
+          description:
+            "Invalid from date (expected YYYY-MM-DD) or from date must not be after to date",
         },
         401: { description: "Unauthorized" },
         403: { description: "Forbidden" },
@@ -125,10 +162,37 @@ module.exports = {
                         nullable: true,
                         example: "2026-10-16T14:30:00.000Z",
                       },
-                      opsCR: { type: "number", example: 0.025 },
-                      dispatchTime: { type: "number", example: 4.5 },
-                      assignmentTime: { type: "number", example: 0.15 },
-                      prepTime: { type: "number", example: 1.8 },
+                      opsCR: { type: "number", example: 0.025, nullable: true },
+                      dispatchTime: {
+                        type: "number",
+                        example: 4.5,
+                        nullable: true,
+                      },
+                      assignmentTime: {
+                        type: "number",
+                        example: 0.15,
+                        nullable: true,
+                      },
+                      prepTime: {
+                        type: "number",
+                        example: 1.8,
+                        nullable: true,
+                      },
+                      orderCount: {
+                        type: "number",
+                        nullable: true,
+                        description: "Daily order count",
+                      },
+                      atVendorTime: {
+                        type: "number",
+                        nullable: true,
+                        description: "Average time at vendor in minutes",
+                      },
+                      adjustTime: {
+                        type: "number",
+                        nullable: true,
+                        description: "Adjustment time in minutes",
+                      },
                       score: {
                         type: "object",
                         properties: {
@@ -170,19 +234,31 @@ module.exports = {
           content: {
             "application/json": {
               schema: {
-                allOf: [
-                  { $ref: "#/components/schemas/BranchDailyMetric" },
-                  {
-                    type: "object",
-                    properties: {
-                      recordedAt: {
-                        type: "string",
-                        format: "date-time",
-                        nullable: true,
-                      },
-                    },
+                type: "object",
+                properties: {
+                  id: { type: "string", format: "uuid" },
+                  metricDate: { type: "string", format: "date" },
+                  recordedAt: {
+                    type: "string",
+                    format: "date-time",
+                    nullable: true,
                   },
-                ],
+                  opsCR: { type: "number", nullable: true },
+                  dispatchTime: { type: "number", nullable: true },
+                  prepTime: { type: "number", nullable: true },
+                  assignmentTime: { type: "number", nullable: true },
+                  orderCount: { type: "number", nullable: true },
+                  atVendorTime: { type: "number", nullable: true },
+                  adjustTime: { type: "number", nullable: true },
+                  createdById: { type: "string", format: "uuid" },
+                  updatedById: {
+                    type: "string",
+                    format: "uuid",
+                    nullable: true,
+                  },
+                  createdAt: { type: "string", format: "date-time" },
+                  updatedAt: { type: "string", format: "date-time" },
+                },
               },
             },
           },
@@ -216,11 +292,27 @@ module.exports = {
                   type: "string",
                   format: "date-time",
                   example: "2026-10-16T14:30:00.000Z",
+                  nullable: true,
                 },
-                opsCR: { type: "number" },
-                dispatchTime: { type: "number" },
-                prepTime: { type: "number" },
-                assignmentTime: { type: "number" },
+                opsCR: { type: "number", nullable: true },
+                dispatchTime: { type: "number", nullable: true },
+                prepTime: { type: "number", nullable: true },
+                assignmentTime: { type: "number", nullable: true },
+                orderCount: {
+                  type: "number",
+                  nullable: true,
+                  description: "Daily order count",
+                },
+                atVendorTime: {
+                  type: "number",
+                  nullable: true,
+                  description: "Average time at vendor in minutes",
+                },
+                adjustTime: {
+                  type: "number",
+                  nullable: true,
+                  description: "Adjustment time in minutes",
+                },
               },
             },
           },

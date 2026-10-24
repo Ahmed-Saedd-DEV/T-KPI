@@ -22,7 +22,11 @@ async function getUserById(req, res, next) {
 
 async function updateUser(req, res, next) {
   try {
-    const user = await userService.updateUser(req.params.id, req.body || {});
+    const user = await userService.updateUser(
+      req.params.id,
+      req.body || {},
+      req.user,
+    );
     res.status(200).json(user);
   } catch (error) {
     next(error);
@@ -31,7 +35,7 @@ async function updateUser(req, res, next) {
 
 async function deleteUser(req, res, next) {
   try {
-    await userService.deleteUser(req.params.id);
+    await userService.deleteUser(req.params.id, req.user);
     res.status(204).send();
   } catch (error) {
     next(error);

@@ -3,7 +3,12 @@ const employeeListService = require("../../services/employees/employeeListServic
 
 async function getEmployees(req, res, next) {
   try {
-    const result = await employeeListService.getEmployeeList(req.query);
+    const { page, limit, ...filters } = req.query;
+    const result = await employeeListService.getEmployeeList({
+      ...filters,
+      page,
+      limit,
+    });
     res.status(200).json(result);
   } catch (error) {
     next(error);

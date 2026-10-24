@@ -3,6 +3,7 @@
 const ExcelJS = require("exceljs");
 const importRepository = require("../../../repositories/importRepository");
 const AppError = require("../../../utils/AppError");
+const { createAuditLog } = require("../../../utils/audit/createAuditLog");
 
 const REQUIRED_COLUMNS = [
   "Picker Rooster ID",
@@ -86,6 +87,7 @@ async function importEmployeesFromExcel(
   filePath,
   originalFileName,
   uploadedById,
+  actor = null,
 ) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
@@ -225,6 +227,22 @@ async function importEmployeesFromExcel(
   const finalStatus = successCount > 0 ? "COMPLETED" : "FAILED";
 
   await importRepository.updateBatch(batch.id, { status: finalStatus });
+
+  if (finalStatus === "COMPLETED") {
+    await createAuditLog({
+      action: "IMPORT",
+      entityType: "ImportBatch",
+      entityId: batch.id,
+      beforeData: null,
+      afterData: {
+        fileName: batch.fileName,
+        totalRows,
+        successCount,
+        errorCount: totalRows - successCount,
+      },
+      actor,
+    });
+  }
 
   return {
     batchId: batch.id,

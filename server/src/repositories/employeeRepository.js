@@ -25,11 +25,58 @@ function update(id, data) {
 }
 
 function deleteById(id, tx = prisma) {
-  return tx.employee.delete({ where: { id } });
+  const client = tx || prisma;
+  return client.employee.delete({ where: { id } });
 }
 
-function deletePerformancesByEmployeeId(employeeId, tx) {
-  return tx.employeePerformance.deleteMany({ where: { employeeId } });
+function deletePerformancesByEmployeeId(employeeId, tx = prisma) {
+  const client = tx || prisma;
+  return client.employeePerformance.deleteMany({ where: { employeeId } });
+}
+
+function getEmployeesWithLatestPerformance(searchFilter) {
+  return prisma.employee.findMany({
+    where: searchFilter || undefined,
+    orderBy: { createdAt: "desc" },
+    include: {
+      performances: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: {
+          importBatch: {
+            select: { id: true, fileName: true, createdAt: true },
+          },
+        },
+      },
+    },
+  });
+}
+
+function getTopEmployeesWithLatestPerformance() {
+  return prisma.employee.findMany({
+    include: {
+      performances: {
+        orderBy: { periodStart: "desc" },
+        take: 1,
+      },
+    },
+  });
+}
+
+function findPerformanceRecordsByEmployeeId(employeeId) {
+  return prisma.employeePerformance.findMany({
+    where: { employeeId },
+    include: {
+      importBatch: {
+        select: {
+          id: true,
+          fileName: true,
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 module.exports = {
@@ -40,4 +87,7 @@ module.exports = {
   update,
   deleteById,
   deletePerformancesByEmployeeId,
+  getEmployeesWithLatestPerformance,
+  getTopEmployeesWithLatestPerformance,
+  findPerformanceRecordsByEmployeeId,
 };

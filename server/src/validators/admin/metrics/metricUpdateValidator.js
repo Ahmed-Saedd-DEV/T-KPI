@@ -8,6 +8,9 @@ const ALLOWED_FIELDS = new Set([
   "prepTime",
   "assignmentTime",
   "recordedAt",
+  "orderCount",
+  "atVendorTime",
+  "adjustTime",
 ]);
 
 function isValidIsoDateTime(value) {
@@ -53,6 +56,17 @@ function validateMetricUpdate(req, res, next) {
             true,
           ),
         );
+      }
+      continue;
+    }
+
+    if (
+      field === "orderCount" ||
+      field === "atVendorTime" ||
+      field === "adjustTime"
+    ) {
+      if (!Number.isFinite(Number(value))) {
+        return next(new AppError(`Invalid value for ${field}`, 400, true));
       }
       continue;
     }

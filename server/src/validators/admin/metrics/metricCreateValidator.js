@@ -42,6 +42,9 @@ function validateMetricCreate(req, res, next) {
     dispatchTime,
     prepTime,
     assignmentTime,
+    orderCount,
+    atVendorTime,
+    adjustTime,
   } = body;
 
   if (!isValidDateString(metricDate)) {
@@ -79,13 +82,22 @@ function validateMetricCreate(req, res, next) {
     ["dispatchTime", dispatchTime],
     ["prepTime", prepTime],
     ["assignmentTime", assignmentTime],
+    ["orderCount", orderCount],
+    ["atVendorTime", atVendorTime],
+    ["adjustTime", adjustTime],
   ];
 
   for (const [field, value] of optional) {
     if (value === undefined || value === null || value === "") continue;
 
     const num = Number(value);
-    if (!Number.isFinite(num) || num <= 0) {
+    const allowsAnyFiniteNumber = [
+      "orderCount",
+      "atVendorTime",
+      "adjustTime",
+    ].includes(field);
+
+    if (!Number.isFinite(num) || (!allowsAnyFiniteNumber && num <= 0)) {
       return next(new AppError(`Invalid value for ${field}`, 400, true));
     }
   }

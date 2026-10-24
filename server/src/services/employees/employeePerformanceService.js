@@ -1,6 +1,6 @@
 "use strict";
 
-const prisma = require("../../prisma/prismaClient");
+const employeeRepository = require("../../repositories/employeeRepository");
 const AppError = require("../../utils/AppError");
 const { calculateKpiScore } = require("../../domain/kpi/kpiCalculator");
 
@@ -18,27 +18,14 @@ async function getEmployeePerformance(id) {
     throw new AppError("Invalid employee id", 400, true);
   }
 
-  const employee = await prisma.employee.findUnique({
-    where: { id },
-  });
+  const employee = await employeeRepository.findById(id);
 
   if (!employee) {
     throw new AppError("Employee not found", 404, true);
   }
 
-  const records = await prisma.employeePerformance.findMany({
-    where: { employeeId: id },
-    include: {
-      importBatch: {
-        select: {
-          id: true,
-          fileName: true,
-          createdAt: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const records =
+    await employeeRepository.findPerformanceRecordsByEmployeeId(id);
 
   const performance = records.map((record) => {
     const metrics = {

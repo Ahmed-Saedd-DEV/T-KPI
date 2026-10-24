@@ -7,6 +7,7 @@ const branchMetricController = require("../../../controllers/admin/metrics/branc
 const metricCreateValidator = require("../../../validators/admin/metrics/metricCreateValidator");
 const metricUpdateValidator = require("../../../validators/admin/metrics/metricUpdateValidator");
 const metricDateValidator = require("../../../validators/admin/metrics/metricDateValidator");
+const metricRangeValidator = require("../../../validators/admin/metrics/metricRangeValidator");
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ router.get(
   "/",
   auth,
   authorize("ADMIN"),
+  metricRangeValidator,
   branchMetricController.getDailyMetrics,
 );
 

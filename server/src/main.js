@@ -12,6 +12,7 @@ const importRoutes = require("./routes/admin/import/importRoutes");
 const branchMetricRoutes = require("./routes/admin/metrics/branchMetricRoutes");
 const adminEmployeeRoutes = require("./routes/admin/employees/employeeAdminRoutes");
 const userRoutes = require("./routes/admin/users/userRoutes");
+const auditRoutes = require("./routes/admin/audit/auditRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +51,7 @@ app.use("/admin/import", importRoutes);
 app.use("/admin/metrics/daily", branchMetricRoutes);
 app.use("/admin/users", userRoutes);
 app.use("/admin", adminEmployeeRoutes);
+app.use("/admin/audit-logs", auditRoutes);
 app.use("/employees", employeeRoutes);
 
 app.use(errorHandler);

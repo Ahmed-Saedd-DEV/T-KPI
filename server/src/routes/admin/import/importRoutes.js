@@ -7,6 +7,7 @@ const authorize = require("../../../middleware/auth/authorize");
 const importController = require("../../../controllers/admin/import/importController");
 const importBatchController = require("../../../controllers/admin/import/importBatchController");
 const importValidator = require("../../../validators/admin/import/importValidator");
+const batchListValidator = require("../../../validators/admin/import/batchListValidator");
 const batchDeleteValidator = require("../../../validators/admin/import/batchDeleteValidator");
 
 const upload = multer({
@@ -40,6 +41,7 @@ router.get(
   "/batches",
   auth,
   authorize("ADMIN"),
+  batchListValidator,
   importBatchController.getImportBatches,
 );
 

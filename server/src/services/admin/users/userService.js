@@ -3,6 +3,7 @@
 const employeeRepository = require("../../../repositories/employeeRepository");
 const userRepository = require("../../../repositories/userRepository");
 const AppError = require("../../../utils/AppError");
+const { createAuditLog } = require("../../../utils/audit/createAuditLog");
 
 function isValidUuid(value) {
   return (
@@ -65,7 +66,7 @@ async function getUserById(id) {
   return sanitizeUser(user);
 }
 
-async function updateUser(id, data = {}) {
+async function updateUser(id, data = {}, actor = null) {
   if (!isValidUuid(id)) {
     throw new AppError("Invalid user id", 400, true);
   }
@@ -142,6 +143,26 @@ async function updateUser(id, data = {}) {
         updatedAt: true,
       },
     });
+
+    await createAuditLog({
+      action: "UPDATE",
+      entityType: "User",
+      entityId: id,
+      beforeData: {
+        id: existingUser.id,
+        email: existingUser.email,
+        role: existingUser.role,
+        isActive: existingUser.isActive,
+      },
+      afterData: {
+        id: updated.id,
+        email: updated.email,
+        role: updated.role,
+        isActive: updated.isActive,
+      },
+      actor,
+    });
+
     return sanitizeUser(updated);
   } catch (error) {
     if (error && error.code === "P2002") {
@@ -151,7 +172,7 @@ async function updateUser(id, data = {}) {
   }
 }
 
-async function deleteUser(id) {
+async function deleteUser(id, actor = null) {
   if (!isValidUuid(id)) {
     throw new AppError("Invalid user id", 400, true);
   }
@@ -163,6 +184,20 @@ async function deleteUser(id) {
 
   try {
     await userRepository.deleteById(id);
+
+    await createAuditLog({
+      action: "DELETE",
+      entityType: "User",
+      entityId: id,
+      beforeData: {
+        id: existingUser.id,
+        email: existingUser.email,
+        role: existingUser.role,
+      },
+      afterData: null,
+      actor,
+    });
+
     return null;
   } catch (error) {
     if (error && error.code === "P2025") {

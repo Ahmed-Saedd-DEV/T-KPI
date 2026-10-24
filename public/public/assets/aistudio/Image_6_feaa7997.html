@@ -1,0 +1,598 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Picker Performance - Dashboard</title>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#0B1120",
+            surface: "#151F32",
+            "surface-panel": "#1B2940",
+            "surface-container": "#151F32",
+            "surface-container-low": "#0F172A",
+            "surface-container-high": "#1E293B",
+            "primary-container": "#38BDF8",
+            primary: "#38BDF8",
+            "on-surface": "#F1F5F9",
+            "on-surface-variant": "#94A3B8",
+            outline: "#64748B",
+            "outline-variant": "#1E293B",
+            tertiary: "#34D399",
+            "error-container": "#7F1D1D",
+            error: "#F87171"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            body: ["Inter", "sans-serif"]
+          }
+        }
+      }
+    }
+</script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B1120;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+</style>
+</head>
+<body class="bg-[#0B1120] text-[#F1F5F9] antialiased font-sans min-h-screen flex selection:bg-[#38BDF8] selection:text-[#0B1120]">
+<!-- ================= 1. DESKTOP PERSISTENT DARK SIDEBAR (w-64) ================= -->
+<aside class="w-64 bg-[#0F172A] border-r border-[#1E293B] fixed inset-y-0 left-0 z-40 flex flex-col justify-between select-none">
+<!-- Top brand & navigation -->
+<div>
+<!-- Logo / Brand Header -->
+<div class="h-16 px-5 flex items-center gap-3 border-b border-[#1E293B]">
+<div class="w-8 h-8 rounded-lg bg-[#38BDF8]/10 border border-[#38BDF8]/30 flex items-center justify-center text-[#38BDF8]">
+<span class="material-symbols-outlined text-[20px]">precision_manufacturing</span>
+</div>
+<div class="flex flex-col">
+<span class="font-bold text-[15px] leading-tight text-[#F1F5F9] tracking-tight">Picker Performance</span>
+<span class="text-[11px] font-medium text-[#64748B] uppercase tracking-wider">Floor Telemetry</span>
+</div>
+</div>
+<!-- Navigation Items -->
+<nav class="p-3 space-y-1">
+<!-- Item 1: Dashboard (ACTIVE with subtle accent badge) -->
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-[#151F32] text-[#38BDF8] font-semibold border border-[#38BDF8]/20 transition-all shadow-sm" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#38BDF8]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-sm">Dashboard</span>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-[#38BDF8] shadow-[0_0_8px_#38BDF8]"></span>
+</a>
+<!-- Item 2: Picker Performance -->
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[#94A3B8] font-medium hover:bg-[#151F32] hover:text-[#F1F5F9] transition-colors group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#64748B] group-hover:text-[#94A3B8] transition-colors">speed</span>
+<span class="text-sm">Pickers</span>
+</div>
+</a>
+<!-- Item 3: Branch KPIs -->
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[#94A3B8] font-medium hover:bg-[#151F32] hover:text-[#F1F5F9] transition-colors group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#64748B] group-hover:text-[#94A3B8] transition-colors">analytics</span>
+<span class="text-sm">Branch KPIs</span>
+</div>
+</a>
+<!-- Item 4: Admin / Input -->
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[#94A3B8] font-medium hover:bg-[#151F32] hover:text-[#F1F5F9] transition-colors group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#64748B] group-hover:text-[#94A3B8] transition-colors">tune</span>
+<span class="text-sm">Admin / Input</span>
+</div>
+</a>
+</nav>
+</div>
+<!-- Operational Node Status Footer -->
+<div class="p-4 border-t border-[#1E293B] m-3 rounded-lg bg-[#151F32]/80 border">
+<div class="flex items-center justify-between mb-2">
+<span class="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">Gateway Stream</span>
+<span class="text-[10px] font-mono text-[#34D399] bg-[#34D399]/10 px-1.5 py-0.5 rounded border border-[#34D399]/20 font-bold">ONLINE</span>
+</div>
+<div class="flex items-center gap-2 text-[12px] text-[#94A3B8]">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#34D399] opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-[#34D399]"></span>
+</span>
+<span class="font-mono text-[11px] text-[#CBD5E1]">Node #04 • Zone Hub</span>
+</div>
+</div>
+</aside>
+<!-- ================= MAIN VIEWPORT AREA ================= -->
+<div class="pl-64 flex-1 flex flex-col min-h-screen">
+<!-- ================= TOP HEADER BAR (h-16) ================= -->
+<header class="h-16 w-full px-8 bg-[#0F172A]/90 backdrop-blur-md border-b border-[#1E293B] sticky top-0 z-30 flex items-center justify-between">
+<!-- Leading Page Title & Breadcrumbs -->
+<div class="flex items-center gap-3">
+<h1 class="text-lg font-bold text-[#F1F5F9] tracking-tight">Dashboard</h1>
+<span class="text-[#334155]">/</span>
+<span class="text-xs font-medium px-2 py-0.5 rounded bg-[#1E293B] text-[#38BDF8] border border-[#38BDF8]/20">Overview</span>
+<span class="hidden lg:inline text-xs text-[#64748B] ml-2">Real-time floor velocity and weekly branch conversion metrics</span>
+</div>
+<!-- Trailing Operational node info, current time, notifications & profile -->
+<div class="flex items-center gap-4">
+<!-- Current Time Telemetry -->
+<div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#151F32] border border-[#1E293B] text-[#94A3B8]">
+<span class="material-symbols-outlined text-[16px] text-[#64748B]">schedule</span>
+<span class="text-xs font-mono tabular-nums text-[#F1F5F9]" id="live-clock">14:32:08 UTC</span>
+</div>
+<!-- Operational Node Indicator Badge -->
+<div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#151F32] border border-[#1E293B]">
+<span class="w-2 h-2 rounded-full bg-[#38BDF8]"></span>
+<span class="text-xs font-medium text-[#CBD5E1]">Shift 01</span>
+<span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#1E293B] text-[#94A3B8]">Active</span>
+</div>
+<!-- Notification button -->
+<button aria-label="Notifications" class="p-2 rounded-lg text-[#94A3B8] hover:text-[#F1F5F9] hover:bg-[#151F32] transition-colors relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#38BDF8] ring-2 ring-[#0F172A]"></span>
+</button>
+<!-- Profile / User avatar -->
+<div class="flex items-center gap-2.5 pl-2 border-l border-[#1E293B]">
+<div class="w-8 h-8 rounded-lg bg-[#1B2940] border border-[#38BDF8]/30 flex items-center justify-center text-[#38BDF8] font-bold text-xs">
+          OP
+        </div>
+<div class="hidden xl:flex flex-col">
+<span class="text-xs font-semibold text-[#F1F5F9]">Ops Supervisor</span>
+<span class="text-[10px] text-[#64748B]">ID: SUP-902</span>
+</div>
+</div>
+</div>
+</header>
+<!-- ================= MAIN CONTENT AREA ================= -->
+<main class="w-full max-w-7xl px-8 py-6 flex-1 flex flex-col gap-6">
+<!-- KPI Metric Summary Ribbon (Comfortable desktop-first balance) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex items-center justify-between">
+<div>
+<span class="text-xs text-[#94A3B8] font-medium block">Active Shift Pickers</span>
+<span class="text-xl font-bold text-[#F1F5F9] font-mono tabular-nums">28 <span class="text-xs font-normal text-[#64748B]">on floor</span></span>
+</div>
+<div class="w-9 h-9 rounded-lg bg-[#1B2940] border border-[#1E293B] flex items-center justify-center text-[#38BDF8]">
+<span class="material-symbols-outlined text-[20px]">groups</span>
+</div>
+</div>
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex items-center justify-between">
+<div>
+<span class="text-xs text-[#94A3B8] font-medium block">Total Shift Units</span>
+<span class="text-xl font-bold text-[#F1F5F9] font-mono tabular-nums">1,492 <span class="text-xs font-medium text-[#34D399]">+6.2%</span></span>
+</div>
+<div class="w-9 h-9 rounded-lg bg-[#1B2940] border border-[#1E293B] flex items-center justify-center text-[#34D399]">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+</div>
+</div>
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex items-center justify-between">
+<div>
+<span class="text-xs text-[#94A3B8] font-medium block">Avg Pick Velocity</span>
+<span class="text-xl font-bold text-[#F1F5F9] font-mono tabular-nums">48.4 <span class="text-xs font-normal text-[#64748B]">sec/order</span></span>
+</div>
+<div class="w-9 h-9 rounded-lg bg-[#1B2940] border border-[#1E293B] flex items-center justify-center text-[#38BDF8]">
+<span class="material-symbols-outlined text-[20px]">timer</span>
+</div>
+</div>
+<div class="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex items-center justify-between">
+<div>
+<span class="text-xs text-[#94A3B8] font-medium block">Daily Branch CR</span>
+<span class="text-xl font-bold text-[#38BDF8] font-mono tabular-nums">3.25% <span class="text-xs font-normal text-[#94A3B8]">7D Avg 3.42%</span></span>
+</div>
+<div class="w-9 h-9 rounded-lg bg-[#1B2940] border border-[#38BDF8]/20 flex items-center justify-center text-[#38BDF8]">
+<span class="material-symbols-outlined text-[20px]">query_stats</span>
+</div>
+</div>
+</div>
+<!-- ================= 2. SIDE-BY-SIDE WIDESCREEN SECTION ================= -->
+<!-- Grid: Leaderboard (~38% / 5 cols) + Daily Branch CR Chart (~62% / 7 cols) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+<!-- ================= 3. TOP 3 PICKERS LEADERBOARD (Cols 1-5) ================= -->
+<section class="lg:col-span-5 bg-[#151F32] border border-[#1E293B] rounded-xl flex flex-col justify-between overflow-hidden shadow-sm">
+<div>
+<!-- Header with Title & State Switcher Tabs -->
+<div class="p-4 border-b border-[#1E293B] flex items-center justify-between gap-2 bg-[#1B2940]/40">
+<div class="flex items-center gap-2.5">
+<div class="w-2 h-4 bg-[#38BDF8] rounded-sm"></div>
+<div>
+<h2 class="text-sm font-bold text-[#F1F5F9]">Top 3 Pickers Leaderboard</h2>
+<span class="text-[11px] text-[#64748B]">Ranked by floor efficiency &amp; accuracy</span>
+</div>
+</div>
+<!-- State Toggle Tabs (Active, Skeleton, Empty, Error) -->
+<div aria-label="Leaderboard states" class="flex items-center bg-[#0F172A] p-0.5 rounded-lg border border-[#1E293B]" role="group">
+<button class="px-2 py-0.5 rounded text-[11px] font-medium text-[#38BDF8] bg-[#1E293B] transition-colors" id="btn-state-normal" onclick="setLeaderboardState('normal')">Active</button>
+<button class="px-2 py-0.5 rounded text-[11px] font-medium text-[#94A3B8] hover:text-[#F1F5F9] transition-colors" id="btn-state-loading" onclick="setLeaderboardState('loading')">Skeleton</button>
+<button class="px-2 py-0.5 rounded text-[11px] font-medium text-[#94A3B8] hover:text-[#F1F5F9] transition-colors" id="btn-state-empty" onclick="setLeaderboardState('empty')">Empty</button>
+<button class="px-2 py-0.5 rounded text-[11px] font-medium text-[#94A3B8] hover:text-[#F1F5F9] transition-colors" id="btn-state-error" onclick="setLeaderboardState('error')">Error</button>
+</div>
+</div>
+<!-- Normal State: Compact High-Density 3-Row Vertical List -->
+<div class="divide-y divide-[#1E293B]" id="state-normal">
+<!-- Rank 1: Gold Accent -->
+<div class="p-4 hover:bg-[#1B2940]/50 transition-colors flex items-center justify-between gap-3">
+<div class="flex items-center gap-3.5 min-w-0">
+<!-- Subtle gold medal indicator -->
+<div class="flex-shrink-0 w-9 h-9 rounded-lg bg-[#FDE047]/10 border border-[#FDE047]/30 flex items-center justify-center text-[#FDE047]">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-sm font-semibold text-[#F1F5F9] truncate">Ahmed Mansour</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#FDE047]/15 text-[#FDE047] border border-[#FDE047]/30">#1</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-[#94A3B8] mt-0.5">
+<span class="font-mono text-[11px] text-[#64748B]">ID: P-1042</span>
+<span class="text-[#334155]">•</span>
+<span>Zone A-East</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 flex-shrink-0">
+<div class="text-right">
+<span class="block text-[11px] text-[#64748B] font-medium">Orders</span>
+<span class="text-sm font-semibold text-[#F1F5F9] tabular-nums">142</span>
+</div>
+<div class="text-right min-w-[62px]">
+<span class="block text-[11px] text-[#64748B] font-medium">Performance</span>
+<div class="flex items-center justify-end gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#34D399]"></span>
+<span class="text-base font-bold text-[#34D399] tabular-nums">96%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Rank 2: Silver Accent -->
+<div class="p-4 hover:bg-[#1B2940]/50 transition-colors flex items-center justify-between gap-3">
+<div class="flex items-center gap-3.5 min-w-0">
+<!-- Subtle silver indicator -->
+<div class="flex-shrink-0 w-9 h-9 rounded-lg bg-[#E2E8F0]/10 border border-[#E2E8F0]/30 flex items-center justify-center text-[#E2E8F0]">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-sm font-semibold text-[#F1F5F9] truncate">Karim Tarek</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#E2E8F0]/15 text-[#E2E8F0] border border-[#E2E8F0]/30">#2</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-[#94A3B8] mt-0.5">
+<span class="font-mono text-[11px] text-[#64748B]">ID: P-1088</span>
+<span class="text-[#334155]">•</span>
+<span>Zone B-North</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 flex-shrink-0">
+<div class="text-right">
+<span class="block text-[11px] text-[#64748B] font-medium">Orders</span>
+<span class="text-sm font-semibold text-[#F1F5F9] tabular-nums">138</span>
+</div>
+<div class="text-right min-w-[62px]">
+<span class="block text-[11px] text-[#64748B] font-medium">Performance</span>
+<div class="flex items-center justify-end gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#34D399]"></span>
+<span class="text-base font-bold text-[#34D399] tabular-nums">93%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Rank 3: Bronze Accent -->
+<div class="p-4 hover:bg-[#1B2940]/50 transition-colors flex items-center justify-between gap-3">
+<div class="flex items-center gap-3.5 min-w-0">
+<!-- Subtle bronze indicator -->
+<div class="flex-shrink-0 w-9 h-9 rounded-lg bg-[#FB923C]/10 border border-[#FB923C]/30 flex items-center justify-center text-[#FB923C]">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-sm font-semibold text-[#F1F5F9] truncate">Mostafa Hassan</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#FB923C]/15 text-[#FB923C] border border-[#FB923C]/30">#3</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-[#94A3B8] mt-0.5">
+<span class="font-mono text-[11px] text-[#64748B]">ID: P-1015</span>
+<span class="text-[#334155]">•</span>
+<span>Zone C-Hub</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 flex-shrink-0">
+<div class="text-right">
+<span class="block text-[11px] text-[#64748B] font-medium">Orders</span>
+<span class="text-sm font-semibold text-[#F1F5F9] tabular-nums">125</span>
+</div>
+<div class="text-right min-w-[62px]">
+<span class="block text-[11px] text-[#64748B] font-medium">Performance</span>
+<div class="flex items-center justify-end gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#38BDF8]"></span>
+<span class="text-base font-bold text-[#38BDF8] tabular-nums">91%</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Skeleton Loading State -->
+<div class="divide-y divide-[#1E293B] hidden" id="state-loading">
+<div class="p-4 flex items-center justify-between animate-pulse">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-[#1E293B]"></div>
+<div class="space-y-1.5">
+<div class="w-28 h-4 rounded bg-[#1E293B]"></div>
+<div class="w-20 h-3 rounded bg-[#1E293B]/60"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-4 rounded bg-[#1E293B]"></div>
+<div class="w-14 h-5 rounded bg-[#1E293B]"></div>
+</div>
+</div>
+<div class="p-4 flex items-center justify-between animate-pulse">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-[#1E293B]"></div>
+<div class="space-y-1.5">
+<div class="w-24 h-4 rounded bg-[#1E293B]"></div>
+<div class="w-20 h-3 rounded bg-[#1E293B]/60"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-4 rounded bg-[#1E293B]"></div>
+<div class="w-14 h-5 rounded bg-[#1E293B]"></div>
+</div>
+</div>
+<div class="p-4 flex items-center justify-between animate-pulse">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-[#1E293B]"></div>
+<div class="space-y-1.5">
+<div class="w-32 h-4 rounded bg-[#1E293B]"></div>
+<div class="w-20 h-3 rounded bg-[#1E293B]/60"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-4 rounded bg-[#1E293B]"></div>
+<div class="w-14 h-5 rounded bg-[#1E293B]"></div>
+</div>
+</div>
+</div>
+<!-- Empty State -->
+<div class="py-12 px-4 text-center hidden" id="state-empty">
+<div class="w-10 h-10 rounded-full bg-[#1B2940] flex items-center justify-center text-[#64748B] mx-auto mb-2">
+<span class="material-symbols-outlined text-[20px]">leaderboard</span>
+</div>
+<p class="text-sm font-semibold text-[#F1F5F9]">No Pick Records Detected</p>
+<p class="text-xs text-[#94A3B8] max-w-xs mx-auto mt-1">Shift in progress. Telemetry data will aggregate automatically once initial picks are recorded.</p>
+</div>
+<!-- Error State -->
+<div class="py-10 px-4 text-center hidden" id="state-error">
+<div class="w-10 h-10 rounded-full bg-red-950/60 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto mb-2">
+<span class="material-symbols-outlined text-[20px]">sync_problem</span>
+</div>
+<p class="text-sm font-semibold text-red-300">Feed Interruption</p>
+<p class="text-xs text-[#94A3B8] max-w-xs mx-auto mt-1">Unable to query warehouse floor stream. Please re-establish telemetry connection.</p>
+<button class="mt-3 px-3 py-1 bg-[#1E293B] hover:bg-[#334155] border border-[#1E293B] rounded text-xs font-medium text-[#F1F5F9] transition-colors inline-flex items-center gap-1.5" onclick="setLeaderboardState('normal')">
+<span class="material-symbols-outlined text-[14px]">refresh</span>
+              Retry
+            </button>
+</div>
+</div>
+<!-- Leaderboard Footer Summary -->
+<div class="p-3 bg-[#1B2940]/30 border-t border-[#1E293B] flex items-center justify-between text-xs text-[#64748B]">
+<span>Floor Threshold: &gt;90% optimal</span>
+<a class="text-[#38BDF8] hover:underline flex items-center gap-1 font-medium" href="#">
+            Full Roster
+            <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</a>
+</div>
+</section>
+<!-- ================= 4. DAILY BRANCH CR CHART (Cols 6-12) ================= -->
+<section class="lg:col-span-7 bg-[#151F32] border border-[#1E293B] rounded-xl p-5 flex flex-col justify-between overflow-hidden shadow-sm">
+<div>
+<!-- Panel Header: Title + 7-Day Average Badge -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#1E293B] gap-2">
+<div class="flex items-center gap-2.5">
+<div class="w-2 h-4 bg-[#38BDF8] rounded-sm"></div>
+<h2 class="text-sm font-bold text-[#F1F5F9]">Daily Branch CR</h2>
+</div>
+<!-- Small '7-Day Average: 3.42%' badge beside the title -->
+<div class="flex items-center gap-2">
+<span class="text-xs text-[#64748B]">Conversion Rate:</span>
+<span class="text-xs font-semibold text-[#38BDF8] bg-[#1B2940] border border-[#38BDF8]/20 px-2.5 py-0.5 rounded tabular-nums">
+                7-Day Average: 3.42%
+              </span>
+</div>
+</div>
+<!-- Broad, Readable 7-Day Vertical Bar Chart Canvas (Oct 12 - Oct 18) -->
+<div class="pt-6 pb-2 w-full">
+<div class="relative h-60 w-full flex">
+<!-- Y-Axis Labels (0% to 5%) -->
+<div class="w-10 h-full flex flex-col justify-between items-end pr-2.5 text-[#64748B] text-[11px] font-mono tabular-nums select-none">
+<span>5.0%</span>
+<span>4.0%</span>
+<span>3.0%</span>
+<span>2.0%</span>
+<span>1.0%</span>
+<span>0.0%</span>
+</div>
+<!-- Chart Plot Area with Grid Lines -->
+<div class="relative flex-1 h-full border-l border-b border-[#1E293B]">
+<!-- Horizontal Grid Lines (subtle dark borders #1E293B) -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+<div class="w-full border-t border-[#1E293B]/70"></div>
+<div class="w-full border-t border-[#1E293B]/70"></div>
+<div class="w-full border-t border-[#1E293B]/70"></div>
+<div class="w-full border-t border-[#1E293B]/70"></div>
+<div class="w-full border-t border-[#1E293B]/70"></div>
+<div class="w-full"></div>
+</div>
+<!-- 7 Bars Grid: Oct 12 - Oct 18 -->
+<div class="absolute inset-0 grid grid-cols-7 items-end px-3 sm:px-6 gap-3 sm:gap-6">
+<!-- Bar 1: Oct 12 (CR: 3.50% -> 70% height) -->
+<div class="group relative flex flex-col items-center h-full justify-end">
+<div class="w-full max-w-[44px] bg-[#1E293B] hover:bg-[#38BDF8]/80 rounded-t transition-all duration-150 cursor-pointer" style="height: 70%;"></div>
+<!-- Tooltip on hover -->
+<div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20 whitespace-nowrap bg-[#0F172A] border border-[#1E293B] px-2 py-1 rounded shadow-lg text-[11px] font-mono text-[#F1F5F9]">
+                      12/10 — CR: 3.50%
+                    </div>
+</div>
+<!-- Bar 2: Oct 13 (CR: 3.10% -> 62% height) -->
+<div class="group relative flex flex-col items-center h-full justify-end">
+<div class="w-full max-w-[44px] bg-[#1E293B] hover:bg-[#38BDF8]/80 rounded-t transition-all duration-150 cursor-pointer" style="height: 62%;"></div>
+<!-- Tooltip on hover -->
+<div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20 whitespace-nowrap bg-[#0F172A] border border-[#1E293B] px-2 py-1 rounded shadow-lg text-[11px] font-mono text-[#F1F5F9]">
+                      13/10 — CR: 3.10%
+                    </div>
+</div>
+<!-- Bar 3: Oct 14 (CR: 3.80% -> 76% height) -->
+<div class="group relative flex flex-col items-center h-full justify-end">
+<div class="w-full max-w-[44px] bg-[#1E293B] hover:bg-[#38BDF8]/80 rounded-t transition-all duration-150 cursor-pointer" style="height: 76%;"></div>
+<!-- Tooltip on hover -->
+<div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20 whitespace-nowrap bg-[#0F172A] border border-[#1E293B] px-2 py-1 rounded shadow-lg text-[11px] font-mono text-[#F1F5F9]">
+                      14/10 — CR: 3.80%
+                    </div>
+</div>
+<!-- Bar 4: Oct 15 (CR: 3.65% -> 73% height) -->
+<div class="group relative flex flex-col items-center h-full justify-end">
+<div class="w-full max-w-[44px] bg-[#1E293B] hover:bg-[#38BDF8]/80 rounded-t transition-all duration-150 cursor-pointer" style="height: 73%;"></div>
+<!-- Tooltip on hover -->
+<div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20 whitespace-nowrap bg-[#0F172A] border border-[#1E293B] px-2 py-1 rounded shadow-lg text-[11px] font-mono text-[#F1F5F9]">
+                      15/10 — CR: 3.65%
+                    </div>
+</div>
+<!-- Bar 5: Oct 16 (CR: 3.30% -> 66% height) -->
+<div class="group relative flex flex-col items-center h-full justify-end">
+<div class="w-full max-w-[44px] bg-[#1E293B] hover:bg-[#38BDF8]/80 rounded-t transition-all duration-150 cursor-pointer" style="height: 66%;"></div>
+<!-- Tooltip on hover -->
+<div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20 whitespace-nowrap bg-[#0F172A] border border-[#1E293B] px-2 py-1 rounded shadow-lg text-[11px] font-mono text-[#F1F5F9]">
+                      16/10 — CR: 3.30%
+                    </div>
+</div>
+<!-- Bar 6: Oct 17 (CR: 3.34% -> 67% height) -->
+<div class="group relative flex flex-col items-center h-full justify-end">
+<div class="w-full max-w-[44px] bg-[#1E293B] hover:bg-[#38BDF8]/80 rounded-t transition-all duration-150 cursor-pointer" style="height: 67%;"></div>
+<!-- Tooltip on hover -->
+<div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20 whitespace-nowrap bg-[#0F172A] border border-[#1E293B] px-2 py-1 rounded shadow-lg text-[11px] font-mono text-[#F1F5F9]">
+                      17/10 — CR: 3.34%
+                    </div>
+</div>
+<!-- Bar 7: Oct 18 (CR: 3.25% -> 65% height, Active Current Shift) -->
+<div class="group relative flex flex-col items-center h-full justify-end">
+<!-- Detailed Tooltip badge on hover/tap (Simulated active pin) -->
+<div class="absolute -top-10 z-20 whitespace-nowrap bg-[#0F172A] border border-[#38BDF8] px-2.5 py-1 rounded-md shadow-xl text-[11px] font-mono font-semibold text-[#38BDF8] flex items-center gap-1.5 animate-pulse">
+<span class="w-1.5 h-1.5 rounded-full bg-[#38BDF8]"></span>
+<span>18/10 — CR: 3.25%</span>
+</div>
+<!-- Vertical pin indicator guide -->
+<div class="absolute top-0 bottom-0 w-[1px] bg-[#38BDF8]/30 pointer-events-none"></div>
+<!-- Accent cyan bar -->
+<div class="w-full max-w-[44px] bg-[#38BDF8] rounded-t shadow-[0_0_12px_rgba(56,189,248,0.35)] transition-all duration-150 cursor-pointer" style="height: 65%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- X-Axis Labels (Oct 12 to Oct 18) -->
+<div class="flex pl-10 pt-2.5">
+<div class="flex-1 grid grid-cols-7 px-3 sm:px-6 gap-3 sm:gap-6 text-center text-xs font-mono text-[#64748B] select-none">
+<span>Oct 12</span>
+<span>Oct 13</span>
+<span>Oct 14</span>
+<span>Oct 15</span>
+<span>Oct 16</span>
+<span>Oct 17</span>
+<span class="text-[#38BDF8] font-bold">Oct 18</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Demonstration Data Isolation Note & Legend -->
+<div class="mt-4 pt-3 border-t border-[#1E293B] flex flex-wrap items-center justify-between gap-3 text-xs text-[#64748B]">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0F172A] border border-[#1E293B]">
+<span class="material-symbols-outlined text-[14px] text-[#38BDF8]">info</span>
+<span>Demonstration data — isolated for backend integration</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-sm bg-[#1E293B] inline-block"></span>
+              Historical Days
+            </span>
+<span class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-sm bg-[#38BDF8] inline-block"></span>
+              Active Shift (Oct 18)
+            </span>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- Interactive Scripts: Live Clock & State Switcher -->
+<script>
+  // Live UTC Clock for header telemetry
+  function updateClock() {
+    const clockEl = document.getElementById('live-clock');
+    if (!clockEl) return;
+    const now = new Date();
+    const hours = String(now.getUTCHours()).padStart(2, '0');
+    const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+    clockEl.textContent = `${hours}:${minutes}:${seconds} UTC`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Leaderboard state preview switcher (Active, Skeleton, Empty, Error)
+  function setLeaderboardState(state) {
+    const states = ['normal', 'loading', 'empty', 'error'];
+    states.forEach(s => {
+      const el = document.getElementById('state-' + s);
+      const btn = document.getElementById('btn-state-' + s);
+      if (el) {
+        if (s === state) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      }
+      if (btn) {
+        if (s === state) {
+          btn.className = "px-2 py-0.5 rounded text-[11px] font-medium text-[#38BDF8] bg-[#1E293B] transition-colors";
+        } else {
+          btn.className = "px-2 py-0.5 rounded text-[11px] font-medium text-[#94A3B8] hover:text-[#F1F5F9] transition-colors";
+        }
+      }
+    });
+  }
+</script>
+</body></html>

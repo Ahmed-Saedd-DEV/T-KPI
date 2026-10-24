@@ -1,6 +1,6 @@
-const prisma = require("../../prisma/prismaClient");
 const employeeRepository = require("../../repositories/employeeRepository");
 const AppError = require("../../utils/AppError");
+const { createAuditLog } = require("../../utils/audit/createAuditLog");
 
 async function getEmployees() {
   return employeeRepository.findAll();
@@ -26,7 +26,7 @@ async function getEmployeeByCode(employeeCode) {
   return employee;
 }
 
-async function createEmployee(data = {}) {
+async function createEmployee(data = {}, actor = null) {
   const employeeCode =
     typeof data.employeeCode === "string" ? data.employeeCode.trim() : "";
   const name = typeof data.name === "string" ? data.name.trim() : "";
@@ -36,7 +36,22 @@ async function createEmployee(data = {}) {
   }
 
   try {
-    return await employeeRepository.create({ employeeCode, name });
+    const created = await employeeRepository.create({ employeeCode, name });
+
+    await createAuditLog({
+      action: "CREATE",
+      entityType: "Employee",
+      entityId: created.id,
+      beforeData: null,
+      afterData: {
+        id: created.id,
+        employeeCode: created.employeeCode,
+        name: created.name,
+      },
+      actor,
+    });
+
+    return created;
   } catch (error) {
     if (error && error.code === "P2002") {
       throw new AppError("Employee code already exists", 409, true);
@@ -46,7 +61,7 @@ async function createEmployee(data = {}) {
   }
 }
 
-async function updateEmployee(id, data = {}) {
+async function updateEmployee(id, data = {}, actor = null) {
   const updates = {};
 
   if (Object.prototype.hasOwnProperty.call(data, "employeeCode")) {
@@ -94,7 +109,26 @@ async function updateEmployee(id, data = {}) {
   }
 
   try {
-    return await employeeRepository.update(id, updates);
+    const updated = await employeeRepository.update(id, updates);
+
+    await createAuditLog({
+      action: "UPDATE",
+      entityType: "Employee",
+      entityId: id,
+      beforeData: {
+        id: existingEmployee.id,
+        employeeCode: existingEmployee.employeeCode,
+        name: existingEmployee.name,
+      },
+      afterData: {
+        id: updated.id,
+        employeeCode: updated.employeeCode,
+        name: updated.name,
+      },
+      actor,
+    });
+
+    return updated;
   } catch (error) {
     if (error && error.code === "P2002") {
       throw new AppError("Employee code already exists", 409, true);
@@ -111,29 +145,23 @@ async function deleteEmployee(id, actor = null) {
     throw new AppError("Employee not found", 404, true);
   }
 
-  const actorSnapshot =
-    actor && typeof actor === "object"
-      ? {
-          id: actor.id || null,
-          email: actor.email || null,
-          role: actor.role || null,
-        }
-      : null;
-
   try {
-    await prisma.$transaction(async (tx) => {
+    await require("../../prisma/prismaClient").$transaction(async (tx) => {
       await employeeRepository.deletePerformancesByEmployeeId(id, tx);
       await employeeRepository.deleteById(id, tx);
 
-      await tx.auditLog.create({
-        data: {
-          action: "DELETE",
-          entityType: "Employee",
-          entityId: id,
-          beforeData: existingEmployee,
-          actorUserId: actor && actor.id ? actor.id : null,
-          actorSnapshot: actorSnapshot,
+      await createAuditLog({
+        action: "DELETE",
+        entityType: "Employee",
+        entityId: id,
+        beforeData: {
+          id: existingEmployee.id,
+          employeeCode: existingEmployee.employeeCode,
+          name: existingEmployee.name,
         },
+        afterData: null,
+        actor,
+        tx,
       });
     });
 

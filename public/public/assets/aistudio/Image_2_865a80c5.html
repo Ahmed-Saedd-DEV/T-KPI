@@ -1,0 +1,647 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Branch KPIs — ELMONTAZA_DS-68</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#8ed5ff",
+            "primary-container": "#38bdf8",
+            surface: "#0B1120",
+            "surface-container": "#151F32",
+            "surface-container-high": "#1E293B",
+            "surface-variant": "#1e293b",
+            "on-surface": "#F8FAFC",
+            "on-surface-variant": "#94A3B8",
+            outline: "#64748B",
+            "outline-variant": "#1E293B",
+            tertiary: "#52e87c",
+            error: "#ffb4ab",
+            "error-container": "#93000a"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .kpi-active-glow {
+      box-shadow: inset 0 0 0 1px #38BDF8, 0 0 20px -3px rgba(56, 189, 248, 0.4);
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-[#0B1120] text-[#F8FAFC] font-sans antialiased selection:bg-[#38BDF8] selection:text-[#0B1120] min-h-screen flex">
+<!-- Desktop Persistent Sidebar (w-64) -->
+<aside class="hidden md:flex fixed inset-y-0 left-0 w-64 bg-[#0d1c2d] border-r border-[#1E293B] flex-col py-6 px-4 z-50">
+<!-- Branding Header -->
+<div class="px-2 pb-6 border-b border-[#1E293B] mb-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-[#38BDF8]/10 border border-[#38BDF8]/30 flex items-center justify-center text-[#38BDF8]">
+<span class="material-symbols-outlined text-2xl" data-icon="speed">speed</span>
+</div>
+<div>
+<h2 class="text-base font-bold text-[#F8FAFC] tracking-tight leading-tight">Picker Performance</h2>
+<span class="text-[11px] font-mono text-[#64748B] uppercase tracking-wider">Industrial Operations</span>
+</div>
+</div>
+</div>
+<!-- Navigation List -->
+<nav class="flex-1 space-y-1.5">
+<!-- 1. Dashboard -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[#94A3B8] font-medium hover:bg-[#151F32] hover:text-[#F8FAFC] transition-colors" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="dashboard">dashboard</span>
+<span class="text-sm">Dashboard</span>
+</a>
+<!-- 2. Pickers Overview -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[#94A3B8] font-medium hover:bg-[#151F32] hover:text-[#F8FAFC] transition-colors" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="group">group</span>
+<span class="text-sm">Pickers</span>
+</a>
+<!-- 3. Branch KPIs (ACTIVE) -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-[#151F32] text-[#38BDF8] font-semibold border-l-2 border-[#38BDF8] shadow-sm" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="analytics" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="text-sm">Branch KPIs</span>
+</a>
+<!-- 4. Admin / Input -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[#94A3B8] font-medium hover:bg-[#151F32] hover:text-[#F8FAFC] transition-colors" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="tune">tune</span>
+<span class="text-sm">Admin / Input</span>
+</a>
+</nav>
+<!-- Operational System Status Node -->
+<div class="p-3.5 bg-[#151F32] rounded-lg border border-[#1E293B] mt-auto">
+<div class="flex items-center justify-between mb-1.5">
+<span class="text-[10px] font-mono font-bold tracking-wider text-[#64748B] uppercase">Node Status</span>
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono text-[#52e87c] bg-[#52e87c]/10 border border-[#52e87c]/30">
+<span class="w-1.5 h-1.5 rounded-full bg-[#52e87c] animate-pulse"></span>
+          ONLINE
+        </span>
+</div>
+<div class="text-xs font-mono font-bold text-[#F8FAFC]">ELMONTAZA_DS-68</div>
+<div class="text-[10px] font-mono text-[#64748B] mt-0.5">LATENCY: 14ms (Direct Pipe)</div>
+</div>
+</aside>
+<!-- Main Canvas Wrapper: Desktop-First Widescreen Layout -->
+<div class="flex-1 md:pl-64 flex flex-col min-h-screen min-w-0">
+<!-- Top Header Bar -->
+<header class="bg-[#0d1c2d] border-b border-[#1E293B] sticky top-0 z-40 px-4 md:px-8 py-3.5 flex items-center justify-between">
+<div class="flex items-center gap-3 min-w-0">
+<button aria-label="Open menu" class="md:hidden text-[#94A3B8] hover:text-[#F8FAFC] p-1 rounded">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="flex items-baseline gap-3 min-w-0">
+<h1 class="text-lg md:text-xl font-bold text-[#F8FAFC] tracking-tight truncate">Branch KPIs — ELMONTAZA_DS-68</h1>
+<span class="hidden xl:inline text-xs font-mono text-[#38BDF8] bg-[#38BDF8]/10 px-2 py-0.5 rounded border border-[#38BDF8]/30 font-semibold uppercase">Station Feed</span>
+</div>
+</div>
+<div class="flex items-center gap-4 flex-shrink-0">
+<div class="flex items-center gap-2 text-xs font-mono text-[#94A3B8] bg-[#151F32] px-3 py-1.5 rounded-md border border-[#1E293B]">
+<span class="material-symbols-outlined text-sm text-[#38BDF8]" data-icon="schedule">schedule</span>
+<span>Last Updated: 18 Oct 2024, 23:45 UTC</span>
+</div>
+<button aria-label="Notifications" class="relative text-[#94A3B8] hover:text-[#F8FAFC] p-1.5 rounded-lg bg-[#151F32] border border-[#1E293B] transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-[#38BDF8] rounded-full"></span>
+</button>
+</div>
+</header>
+<!-- Content Workspace -->
+<main class="flex-1 px-4 md:px-8 py-6 w-full space-y-6 pb-20 md:pb-8">
+<!-- Error & Live Sync Notification Banner -->
+<div class="p-3.5 bg-red-950/30 border border-red-500/30 rounded-lg flex items-center justify-between gap-4" id="errorBanner">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-400 text-xl" data-icon="warning">warning</span>
+<span class="text-xs md:text-sm text-red-200 font-medium">Failed to load real-time branch sync for external warehouse pods</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1 rounded bg-[#151F32] hover:bg-[#1E293B] text-xs font-semibold text-[#F8FAFC] border border-[#1E293B] transition-colors" onclick="document.getElementById('errorBanner').style.display='none'">
+            Try Again
+          </button>
+<button class="text-[#94A3B8] hover:text-[#F8FAFC] p-1" onclick="document.getElementById('errorBanner').style.display='none'" title="Dismiss">
+<span class="material-symbols-outlined text-base" data-icon="close">close</span>
+</button>
+</div>
+</div>
+<!-- 6 KPI Cards in Exact Sequence: CR, PREP, ORDER, ATVENDOR, Adjust, Dispatch -->
+<section aria-label="Branch Key Performance Indicators">
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+<!-- 1. CR (Selected by default) -->
+<button class="kpi-card text-left p-4 rounded-lg bg-[#151F32] border border-[#38BDF8] kpi-active-glow transition-all duration-150 flex flex-col justify-between h-28 focus:outline-none cursor-pointer group" id="card-CR" onclick="selectKpi('CR')">
+<div class="text-xs font-mono font-semibold tracking-wider text-[#38BDF8] uppercase">CR</div>
+<div class="text-2xl lg:text-3xl font-bold font-mono text-[#F8FAFC]">3.25%</div>
+</button>
+<!-- 2. PREP -->
+<button class="kpi-card text-left p-4 rounded-lg bg-[#151F32] border border-[#1E293B] hover:border-[#334155] transition-all duration-150 flex flex-col justify-between h-28 focus:outline-none cursor-pointer group" id="card-PREP" onclick="selectKpi('PREP')">
+<div class="text-xs font-mono font-semibold tracking-wider text-[#94A3B8] group-hover:text-[#F8FAFC] uppercase">PREP</div>
+<div class="text-2xl lg:text-3xl font-bold font-mono text-[#F8FAFC]">42.4s</div>
+</button>
+<!-- 3. ORDER -->
+<button class="kpi-card text-left p-4 rounded-lg bg-[#151F32] border border-[#1E293B] hover:border-[#334155] transition-all duration-150 flex flex-col justify-between h-28 focus:outline-none cursor-pointer group" id="card-ORDER" onclick="selectKpi('ORDER')">
+<div class="text-xs font-mono font-semibold tracking-wider text-[#94A3B8] group-hover:text-[#F8FAFC] uppercase">ORDER</div>
+<div class="text-2xl lg:text-3xl font-bold font-mono text-[#F8FAFC]">1,420</div>
+</button>
+<!-- 4. ATVENDOR -->
+<button class="kpi-card text-left p-4 rounded-lg bg-[#151F32] border border-[#1E293B] hover:border-[#334155] transition-all duration-150 flex flex-col justify-between h-28 focus:outline-none cursor-pointer group" id="card-ATVENDOR" onclick="selectKpi('ATVENDOR')">
+<div class="text-xs font-mono font-semibold tracking-wider text-[#94A3B8] group-hover:text-[#F8FAFC] uppercase">ATVENDOR</div>
+<div class="text-2xl lg:text-3xl font-bold font-mono text-[#F8FAFC]">18.2m</div>
+</button>
+<!-- 5. Adjust -->
+<button class="kpi-card text-left p-4 rounded-lg bg-[#151F32] border border-[#1E293B] hover:border-[#334155] transition-all duration-150 flex flex-col justify-between h-28 focus:outline-none cursor-pointer group" id="card-Adjust" onclick="selectKpi('Adjust')">
+<div class="text-xs font-mono font-semibold tracking-wider text-[#94A3B8] group-hover:text-[#F8FAFC] uppercase">Adjust</div>
+<div class="text-2xl lg:text-3xl font-bold font-mono text-[#F8FAFC]">14</div>
+</button>
+<!-- 6. Dispatch -->
+<button class="kpi-card text-left p-4 rounded-lg bg-[#151F32] border border-[#1E293B] hover:border-[#334155] transition-all duration-150 flex flex-col justify-between h-28 focus:outline-none cursor-pointer group" id="card-Dispatch" onclick="selectKpi('Dispatch')">
+<div class="text-xs font-mono font-semibold tracking-wider text-[#94A3B8] group-hover:text-[#F8FAFC] uppercase">Dispatch</div>
+<div class="text-2xl lg:text-3xl font-bold font-mono text-[#F8FAFC]">8.65s</div>
+</button>
+</div>
+</section>
+<!-- Historical KPI Chart Section with Exact Chart Types -->
+<section class="bg-[#151F32] border border-[#1E293B] rounded-lg p-6 relative overflow-hidden">
+<!-- Controls Header: Chart Title, Chart Type Badge, and Selector Pills -->
+<div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-5 border-b border-[#1E293B] mb-6">
+<div class="flex flex-wrap items-center gap-3">
+<h2 class="text-xl font-bold text-[#F8FAFC] tracking-tight" id="chartTitle">
+              CR — 7-Day Trend
+            </h2>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-mono font-semibold bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/30" id="chartTypeBadge">
+<span class="material-symbols-outlined text-sm" data-icon="show_chart" id="chartTypeIcon">show_chart</span>
+<span id="chartTypeText">Line Chart</span>
+</span>
+<!-- Live Hover/Tap Tooltip badge -->
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#0d1c2d] border border-[#1E293B] text-xs font-mono text-[#38BDF8] shadow-inner" id="chartTooltip">
+<span class="inline-block w-2 h-2 rounded-full bg-[#38BDF8] animate-ping"></span>
+<span id="chartTooltipText">18/10 — CR: 3.25%</span>
+</div>
+</div>
+<!-- Interactive Tab / Switcher Pills for all 6 KPIs -->
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+<button class="pill-btn px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all bg-[#38BDF8] text-[#0B1120] flex items-center gap-1.5" id="pill-CR" onclick="selectKpi('CR')">
+<span class="material-symbols-outlined text-sm" data-icon="show_chart">show_chart</span>
+<span>CR (Line)</span>
+</button>
+<button class="pill-btn px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B] flex items-center gap-1.5" id="pill-PREP" onclick="selectKpi('PREP')">
+<span class="material-symbols-outlined text-sm" data-icon="show_chart">show_chart</span>
+<span>PREP (Line)</span>
+</button>
+<button class="pill-btn px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B] flex items-center gap-1.5" id="pill-ORDER" onclick="selectKpi('ORDER')">
+<span class="material-symbols-outlined text-sm" data-icon="bar_chart">bar_chart</span>
+<span>ORDER (Bar)</span>
+</button>
+<button class="pill-btn px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B] flex items-center gap-1.5" id="pill-ATVENDOR" onclick="selectKpi('ATVENDOR')">
+<span class="material-symbols-outlined text-sm" data-icon="show_chart">show_chart</span>
+<span>ATVENDOR (Line)</span>
+</button>
+<button class="pill-btn px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B] flex items-center gap-1.5" id="pill-Adjust" onclick="selectKpi('Adjust')">
+<span class="material-symbols-outlined text-sm" data-icon="bar_chart">bar_chart</span>
+<span>Adjust (Bar)</span>
+</button>
+<button class="pill-btn px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B] flex items-center gap-1.5" id="pill-Dispatch" onclick="selectKpi('Dispatch')">
+<span class="material-symbols-outlined text-sm" data-icon="show_chart">show_chart</span>
+<span>Dispatch (Line)</span>
+</button>
+</div>
+</div>
+<!-- Chart Graphic Workspace -->
+<div class="relative w-full h-80 lg:h-96">
+<!-- Y-Axis Labels -->
+<div class="absolute left-0 inset-y-0 w-14 flex flex-col justify-between text-[11px] font-mono text-[#64748B] pb-6 pt-2 select-none pointer-events-none text-right pr-2" id="yAxisContainer">
+<span id="y-axis-5">5.0%</span>
+<span id="y-axis-4">4.0%</span>
+<span id="y-axis-3">3.0%</span>
+<span id="y-axis-2">2.0%</span>
+<span id="y-axis-1">1.0%</span>
+<span id="y-axis-0">0.0%</span>
+</div>
+<!-- Dynamic SVG Chart Canvas -->
+<div class="ml-14 h-full flex flex-col justify-between">
+<div class="relative flex-1 w-full">
+<svg class="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 700 240">
+<defs>
+<linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#38BDF8" stop-opacity="0.35"></stop>
+<stop offset="100%" stop-color="#38BDF8" stop-opacity="0.0"></stop>
+</linearGradient>
+<linearGradient id="barGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#38BDF8" stop-opacity="0.9"></stop>
+<stop offset="100%" stop-color="#38BDF8" stop-opacity="0.3"></stop>
+</linearGradient>
+<linearGradient id="barActiveGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#7dd3fc" stop-opacity="1"></stop>
+<stop offset="100%" stop-color="#38BDF8" stop-opacity="0.6"></stop>
+</linearGradient>
+<linearGradient id="lineStroke" x1="0" x2="1" y1="0" y2="0">
+<stop offset="0%" stop-color="#7DD3FC"></stop>
+<stop offset="100%" stop-color="#38BDF8"></stop>
+</linearGradient>
+</defs>
+<!-- Grid Horizontal Lines -->
+<line stroke="#1E293B" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="700" y1="10" y2="10"></line>
+<line stroke="#1E293B" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="700" y1="56" y2="56"></line>
+<line stroke="#1E293B" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="700" y1="102" y2="102"></line>
+<line stroke="#1E293B" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="700" y1="148" y2="148"></line>
+<line stroke="#1E293B" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="700" y1="194" y2="194"></line>
+<line stroke="#1E293B" stroke-width="1.5" x1="0" x2="700" y1="239" y2="239"></line>
+<!-- Vertical Guide Lines -->
+<line stroke="#1E293B" stroke-opacity="0.4" stroke-width="1" x1="50" x2="50" y1="0" y2="240"></line>
+<line stroke="#1E293B" stroke-opacity="0.4" stroke-width="1" x1="150" x2="150" y1="0" y2="240"></line>
+<line stroke="#1E293B" stroke-opacity="0.4" stroke-width="1" x1="250" x2="250" y1="0" y2="240"></line>
+<line stroke="#1E293B" stroke-opacity="0.4" stroke-width="1" x1="350" x2="350" y1="0" y2="240"></line>
+<line stroke="#1E293B" stroke-opacity="0.4" stroke-width="1" x1="450" x2="450" y1="0" y2="240"></line>
+<line stroke="#1E293B" stroke-opacity="0.4" stroke-width="1" x1="550" x2="550" y1="0" y2="240"></line>
+<line stroke="#1E293B" stroke-opacity="0.4" stroke-width="1" x1="650" x2="650" y1="0" y2="240"></line>
+<!-- LINE CHART ELEMENTS -->
+<g id="lineChartGroup">
+<polygon fill="url(#chartGradient)" id="svgFillArea" points="50,115 150,95 250,130 350,88 450,78 550,105 650,90 650,240 50,240"></polygon>
+<polyline fill="none" id="svgTrendLine" points="50,115 150,95 250,130 350,88 450,78 550,105 650,90" stroke="url(#lineStroke)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></polyline>
+<g id="svgPoints">
+<circle class="cursor-pointer hover:r-6 transition-all" cx="50" cy="115" fill="#151F32" onclick="setTooltip('12/10 — CR: 2.70%')" r="5" stroke="#38BDF8" stroke-width="2.5"></circle>
+<circle class="cursor-pointer hover:r-6 transition-all" cx="150" cy="95" fill="#151F32" onclick="setTooltip('13/10 — CR: 3.10%')" r="5" stroke="#38BDF8" stroke-width="2.5"></circle>
+<circle class="cursor-pointer hover:r-6 transition-all" cx="250" cy="130" fill="#151F32" onclick="setTooltip('14/10 — CR: 2.40%')" r="5" stroke="#38BDF8" stroke-width="2.5"></circle>
+<circle class="cursor-pointer hover:r-6 transition-all" cx="350" cy="88" fill="#151F32" onclick="setTooltip('15/10 — CR: 3.30%')" r="5" stroke="#38BDF8" stroke-width="2.5"></circle>
+<circle class="cursor-pointer hover:r-6 transition-all" cx="450" cy="78" fill="#151F32" onclick="setTooltip('16/10 — CR: 3.50%')" r="5" stroke="#38BDF8" stroke-width="2.5"></circle>
+<circle class="cursor-pointer hover:r-6 transition-all" cx="550" cy="105" fill="#151F32" onclick="setTooltip('17/10 — CR: 2.90%')" r="5" stroke="#38BDF8" stroke-width="2.5"></circle>
+<circle class="cursor-pointer" cx="650" cy="90" fill="#38BDF8" onclick="setTooltip('18/10 — CR: 3.25%')" r="6.5" stroke="#F8FAFC" stroke-width="2.5"></circle>
+</g>
+</g>
+<!-- BAR CHART ELEMENTS (Initially Hidden for CR) -->
+<g class="hidden" id="barChartGroup">
+<!-- Bars generated dynamically via JavaScript -->
+</g>
+</svg>
+</div>
+<!-- X-Axis Labels: Oct 12 to Oct 18 (oldest to newest) -->
+<div class="flex justify-between text-[11px] font-mono text-[#64748B] pt-3 select-none border-t border-[#1E293B] px-4">
+<span class="text-center w-12 cursor-pointer hover:text-[#F8FAFC]">12 Oct</span>
+<span class="text-center w-12 cursor-pointer hover:text-[#F8FAFC]">13 Oct</span>
+<span class="text-center w-12 cursor-pointer hover:text-[#F8FAFC]">14 Oct</span>
+<span class="text-center w-12 cursor-pointer hover:text-[#F8FAFC]">15 Oct</span>
+<span class="text-center w-12 cursor-pointer hover:text-[#F8FAFC]">16 Oct</span>
+<span class="text-center w-12 cursor-pointer hover:text-[#F8FAFC]">17 Oct</span>
+<span class="text-center w-12 font-bold text-[#38BDF8]">18 Oct</span>
+</div>
+</div>
+</div>
+<!-- Footer Data Integrity Mandate Note -->
+<div class="mt-5 pt-4 border-t border-[#1E293B] flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-[#64748B] font-mono gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-[#94A3B8]" data-icon="info">info</span>
+<span>Demonstration data isolation note: No data fabricated; missing dates are preserved without artificial zeros.</span>
+</div>
+<div class="flex items-center gap-2 text-[11px]">
+<span class="inline-block w-2 h-2 rounded-full bg-[#38BDF8]"></span>
+<span>Interval: 24h Aggregated Feed</span>
+</div>
+</div>
+</section>
+<!-- Loading State Skeleton & Empty Previews -->
+<section class="border-t border-[#1E293B] pt-6">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#64748B]" data-icon="hourglass_empty">hourglass_empty</span>
+<h3 class="text-sm font-semibold text-[#94A3B8] uppercase tracking-wider font-mono">Loading State Skeletons &amp; Diagnostics</h3>
+</div>
+<button class="text-xs font-mono text-[#38BDF8] hover:underline" id="toggleSkeletonBtn" onclick="toggleSkeletons()">
+            Hide Skeleton Previews
+          </button>
+</div>
+<div class="space-y-4" id="skeletonContainer">
+<!-- 6 Skeleton Cards -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+<div class="p-4 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-28 flex flex-col justify-between animate-pulse">
+<div class="h-3 w-10 bg-[#1E293B] rounded"></div>
+<div class="h-8 w-20 bg-[#1E293B] rounded"></div>
+</div>
+<div class="p-4 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-28 flex flex-col justify-between animate-pulse">
+<div class="h-3 w-12 bg-[#1E293B] rounded"></div>
+<div class="h-8 w-16 bg-[#1E293B] rounded"></div>
+</div>
+<div class="p-4 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-28 flex flex-col justify-between animate-pulse">
+<div class="h-3 w-14 bg-[#1E293B] rounded"></div>
+<div class="h-8 w-24 bg-[#1E293B] rounded"></div>
+</div>
+<div class="p-4 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-28 flex flex-col justify-between animate-pulse">
+<div class="h-3 w-16 bg-[#1E293B] rounded"></div>
+<div class="h-8 w-20 bg-[#1E293B] rounded"></div>
+</div>
+<div class="p-4 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-28 flex flex-col justify-between animate-pulse">
+<div class="h-3 w-12 bg-[#1E293B] rounded"></div>
+<div class="h-8 w-12 bg-[#1E293B] rounded"></div>
+</div>
+<div class="p-4 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-28 flex flex-col justify-between animate-pulse">
+<div class="h-3 w-14 bg-[#1E293B] rounded"></div>
+<div class="h-8 w-16 bg-[#1E293B] rounded"></div>
+</div>
+</div>
+<!-- Skeleton Chart Panel -->
+<div class="p-6 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-48 flex flex-col justify-between animate-pulse">
+<div class="flex items-center justify-between">
+<div class="h-4 w-44 bg-[#1E293B] rounded"></div>
+<div class="h-4 w-32 bg-[#1E293B] rounded"></div>
+</div>
+<div class="h-24 w-full bg-[#1E293B]/40 rounded-lg flex items-end p-3 gap-3">
+<div class="h-10 flex-1 bg-[#1E293B] rounded"></div>
+<div class="h-16 flex-1 bg-[#1E293B] rounded"></div>
+<div class="h-8 flex-1 bg-[#1E293B] rounded"></div>
+<div class="h-20 flex-1 bg-[#1E293B] rounded"></div>
+<div class="h-14 flex-1 bg-[#1E293B] rounded"></div>
+<div class="h-12 flex-1 bg-[#1E293B] rounded"></div>
+<div class="h-18 flex-1 bg-[#1E293B] rounded"></div>
+</div>
+<div class="h-3 w-1/4 bg-[#1E293B] rounded"></div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Mobile Bottom Navigation Bar (Shown on small screens) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 bg-[#0d1c2d] border-t border-[#1E293B] px-2">
+<a class="flex flex-col items-center justify-center text-[#94A3B8] hover:text-[#38BDF8] py-1 flex-1" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="dashboard">dashboard</span>
+<span class="text-[11px] font-medium mt-0.5">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#94A3B8] hover:text-[#38BDF8] py-1 flex-1" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="group">group</span>
+<span class="text-[11px] font-medium mt-0.5">Pickers</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#38BDF8] font-bold py-1 flex-1 relative" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="analytics" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="text-[11px] font-medium mt-0.5">KPIs</span>
+<span class="absolute top-1 right-1/4 w-1.5 h-1.5 rounded-full bg-[#38BDF8]"></span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#94A3B8] hover:text-[#38BDF8] py-1 flex-1" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="tune">tune</span>
+<span class="text-[11px] font-medium mt-0.5">Admin</span>
+</a>
+</nav>
+<!-- Interactive Chart Controller Script -->
+<script>
+    const chartConfigs = {
+      'CR': {
+        type: 'line',
+        title: 'CR — 7-Day Trend',
+        unit: '%',
+        badge: 'Line Chart',
+        icon: 'show_chart',
+        latestTooltip: '18/10 — CR: 3.25%',
+        yAxis: ['5.0%', '4.0%', '3.0%', '2.0%', '1.0%', '0.0%'],
+        points: '50,115 150,95 250,130 350,88 450,78 550,105 650,90',
+        fillPoints: '50,115 150,95 250,130 350,88 450,78 550,105 650,90 650,240 50,240',
+        coords: [
+          { cx: 50, cy: 115, label: '12/10 — CR: 2.70%' },
+          { cx: 150, cy: 95, label: '13/10 — CR: 3.10%' },
+          { cx: 250, cy: 130, label: '14/10 — CR: 2.40%' },
+          { cx: 350, cy: 88, label: '15/10 — CR: 3.30%' },
+          { cx: 450, cy: 78, label: '16/10 — CR: 3.50%' },
+          { cx: 550, cy: 105, label: '17/10 — CR: 2.90%' },
+          { cx: 650, cy: 90, label: '18/10 — CR: 3.25%', active: true }
+        ]
+      },
+      'PREP': {
+        type: 'line',
+        title: 'PREP — 7-Day Trend',
+        unit: 's',
+        badge: 'Line Chart',
+        icon: 'show_chart',
+        latestTooltip: '18/10 — PREP: 42.4s',
+        yAxis: ['60s', '48s', '36s', '24s', '12s', '0s'],
+        points: '50,135 150,115 250,95 350,80 450,72 550,65 650,55',
+        fillPoints: '50,135 150,115 250,95 350,80 450,72 550,65 650,55 650,240 50,240',
+        coords: [
+          { cx: 50, cy: 135, label: '12/10 — PREP: 26.2s' },
+          { cx: 150, cy: 115, label: '13/10 — PREP: 31.0s' },
+          { cx: 250, cy: 95, label: '14/10 — PREP: 35.8s' },
+          { cx: 350, cy: 80, label: '15/10 — PREP: 38.5s' },
+          { cx: 450, cy: 72, label: '16/10 — PREP: 40.1s' },
+          { cx: 550, cy: 65, label: '17/10 — PREP: 41.2s' },
+          { cx: 650, cy: 55, label: '18/10 — PREP: 42.4s', active: true }
+        ]
+      },
+      'ORDER': {
+        type: 'bar',
+        title: 'ORDER — 7-Day Trend',
+        unit: 'orders',
+        badge: 'Bar Chart',
+        icon: 'bar_chart',
+        latestTooltip: '18/10 — ORDER: 1,420 orders',
+        yAxis: ['1,800', '1,440', '1,080', '720', '360', '0'],
+        bars: [
+          { x: 30, y: 120, width: 40, height: 119, label: '12/10 — ORDER: 910 orders' },
+          { x: 130, y: 95, width: 40, height: 144, label: '13/10 — ORDER: 1,120 orders' },
+          { x: 230, y: 140, width: 40, height: 99, label: '14/10 — ORDER: 760 orders' },
+          { x: 330, y: 70, width: 40, height: 169, label: '15/10 — ORDER: 1,290 orders' },
+          { x: 430, y: 55, width: 40, height: 184, label: '16/10 — ORDER: 1,380 orders' },
+          { x: 530, y: 85, width: 40, height: 154, label: '17/10 — ORDER: 1,180 orders' },
+          { x: 630, y: 48, width: 40, height: 191, label: '18/10 — ORDER: 1,420 orders', active: true }
+        ]
+      },
+      'ATVENDOR': {
+        type: 'line',
+        title: 'ATVENDOR — 7-Day Trend',
+        unit: 'm',
+        badge: 'Line Chart',
+        icon: 'show_chart',
+        latestTooltip: '18/10 — ATVENDOR: 18.2m',
+        yAxis: ['30m', '24m', '18m', '12m', '6m', '0m'],
+        points: '50,80 150,95 250,88 350,110 450,100 550,115 650,110',
+        fillPoints: '50,80 150,95 250,88 350,110 450,100 550,115 650,110 650,240 50,240',
+        coords: [
+          { cx: 50, cy: 80, label: '12/10 — ATVENDOR: 21.0m' },
+          { cx: 150, cy: 95, label: '13/10 — ATVENDOR: 19.5m' },
+          { cx: 250, cy: 88, label: '14/10 — ATVENDOR: 20.2m' },
+          { cx: 350, cy: 110, label: '15/10 — ATVENDOR: 17.5m' },
+          { cx: 450, cy: 100, label: '16/10 — ATVENDOR: 18.8m' },
+          { cx: 550, cy: 115, label: '17/10 — ATVENDOR: 17.0m' },
+          { cx: 650, cy: 110, label: '18/10 — ATVENDOR: 18.2m', active: true }
+        ]
+      },
+      'Adjust': {
+        type: 'bar',
+        title: 'Adjust — 7-Day Trend',
+        unit: 'adjustments',
+        badge: 'Bar Chart',
+        icon: 'bar_chart',
+        latestTooltip: '18/10 — Adjust: 14 counts',
+        yAxis: ['25', '20', '15', '10', '5', '0'],
+        bars: [
+          { x: 30, y: 145, width: 40, height: 94, label: '12/10 — Adjust: 10 counts' },
+          { x: 130, y: 165, width: 40, height: 74, label: '13/10 — Adjust: 8 counts' },
+          { x: 230, y: 95, width: 40, height: 144, label: '14/10 — Adjust: 15 counts' },
+          { x: 330, y: 130, width: 40, height: 109, label: '15/10 — Adjust: 12 counts' },
+          { x: 430, y: 180, width: 40, height: 59, label: '16/10 — Adjust: 6 counts' },
+          { x: 530, y: 150, width: 40, height: 89, label: '17/10 — Adjust: 9 counts' },
+          { x: 630, y: 105, width: 40, height: 134, label: '18/10 — Adjust: 14 counts', active: true }
+        ]
+      },
+      'Dispatch': {
+        type: 'line',
+        title: 'Dispatch — 7-Day Trend',
+        unit: 's',
+        badge: 'Line Chart',
+        icon: 'show_chart',
+        latestTooltip: '18/10 — Dispatch: 8.65s',
+        yAxis: ['15s', '12s', '9s', '6s', '3s', '0s'],
+        points: '50,150 150,135 250,120 350,110 450,105 550,98 650,90',
+        fillPoints: '50,150 150,135 250,120 350,110 450,105 550,98 650,90 650,240 50,240',
+        coords: [
+          { cx: 50, cy: 150, label: '12/10 — Dispatch: 5.20s' },
+          { cx: 150, cy: 135, label: '13/10 — Dispatch: 6.10s' },
+          { cx: 250, cy: 120, label: '14/10 — Dispatch: 7.00s' },
+          { cx: 350, cy: 110, label: '15/10 — Dispatch: 7.60s' },
+          { cx: 450, cy: 105, label: '16/10 — Dispatch: 7.90s' },
+          { cx: 550, cy: 98, label: '17/10 — Dispatch: 8.20s' },
+          { cx: 650, cy: 90, label: '18/10 — Dispatch: 8.65s', active: true }
+        ]
+      }
+    };
+
+    function setTooltip(text) {
+      document.getElementById('chartTooltipText').innerText = text;
+    }
+
+    function selectKpi(name) {
+      const cfg = chartConfigs[name];
+      if (!cfg) return;
+
+      // 1. Reset all KPI Cards
+      document.querySelectorAll('.kpi-card').forEach(card => {
+        card.classList.remove('border-[#38BDF8]', 'kpi-active-glow');
+        card.classList.add('border-[#1E293B]');
+        const label = card.querySelector('div:first-child');
+        if (label) {
+          label.classList.remove('text-[#38BDF8]');
+          label.classList.add('text-[#94A3B8]');
+        }
+      });
+
+      // 2. Highlight clicked Card
+      const targetCard = document.getElementById('card-' + name);
+      if (targetCard) {
+        targetCard.classList.remove('border-[#1E293B]');
+        targetCard.classList.add('border-[#38BDF8]', 'kpi-active-glow');
+        const activeLabel = targetCard.querySelector('div:first-child');
+        if (activeLabel) {
+          activeLabel.classList.add('text-[#38BDF8]');
+          activeLabel.classList.remove('text-[#94A3B8]');
+        }
+      }
+
+      // 3. Reset and highlight switcher pills
+      document.querySelectorAll('.pill-btn').forEach(btn => {
+        btn.classList.remove('bg-[#38BDF8]', 'text-[#0B1120]');
+        btn.classList.add('bg-[#0d1c2d]', 'text-[#94A3B8]', 'border', 'border-[#1E293B]');
+      });
+      const activePill = document.getElementById('pill-' + name);
+      if (activePill) {
+        activePill.classList.remove('bg-[#0d1c2d]', 'text-[#94A3B8]', 'border', 'border-[#1E293B]');
+        activePill.classList.add('bg-[#38BDF8]', 'text-[#0B1120]');
+      }
+
+      // 4. Update Header Elements
+      document.getElementById('chartTitle').innerText = cfg.title;
+      document.getElementById('chartTypeText').innerText = cfg.badge;
+      document.getElementById('chartTypeIcon').innerText = cfg.icon;
+      document.getElementById('chartTooltipText').innerText = cfg.latestTooltip;
+
+      // 5. Update Y-Axis
+      for (let i = 0; i <= 5; i++) {
+        const el = document.getElementById('y-axis-' + (5 - i));
+        if (el) el.innerText = cfg.yAxis[i];
+      }
+
+      // 6. Switch Chart Graphic based on type
+      const lineGroup = document.getElementById('lineChartGroup');
+      const barGroup = document.getElementById('barChartGroup');
+
+      if (cfg.type === 'line') {
+        barGroup.classList.add('hidden');
+        lineGroup.classList.remove('hidden');
+
+        document.getElementById('svgTrendLine').setAttribute('points', cfg.points);
+        document.getElementById('svgFillArea').setAttribute('points', cfg.fillPoints);
+
+        const pointsGroup = document.getElementById('svgPoints');
+        pointsGroup.innerHTML = '';
+        cfg.coords.forEach(pt => {
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', pt.cx);
+          circle.setAttribute('cy', pt.cy);
+          if (pt.active) {
+            circle.setAttribute('r', '6.5');
+            circle.setAttribute('fill', '#38BDF8');
+            circle.setAttribute('stroke', '#F8FAFC');
+            circle.setAttribute('stroke-width', '2.5');
+            circle.setAttribute('class', 'cursor-pointer transition-all');
+          } else {
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#151F32');
+            circle.setAttribute('stroke', '#38BDF8');
+            circle.setAttribute('stroke-width', '2.5');
+            circle.setAttribute('class', 'cursor-pointer hover:r-6 transition-all');
+          }
+          circle.addEventListener('click', () => setTooltip(pt.label));
+          circle.addEventListener('mouseenter', () => setTooltip(pt.label));
+          pointsGroup.appendChild(circle);
+        });
+
+      } else if (cfg.type === 'bar') {
+        lineGroup.classList.add('hidden');
+        barGroup.classList.remove('hidden');
+        barGroup.innerHTML = '';
+
+        cfg.bars.forEach(bar => {
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', bar.x);
+          rect.setAttribute('y', bar.y);
+          rect.setAttribute('width', bar.width);
+          rect.setAttribute('height', bar.height);
+          rect.setAttribute('rx', '4');
+          rect.setAttribute('ry', '4');
+          rect.setAttribute('fill', bar.active ? 'url(#barActiveGradient)' : 'url(#barGradient)');
+          rect.setAttribute('stroke', bar.active ? '#7dd3fc' : '#38BDF8');
+          rect.setAttribute('stroke-width', '1');
+          rect.setAttribute('class', 'cursor-pointer hover:opacity-80 transition-opacity');
+          rect.addEventListener('click', () => setTooltip(bar.label));
+          rect.addEventListener('mouseenter', () => setTooltip(bar.label));
+          barGroup.appendChild(rect);
+        });
+      }
+    }
+
+    function toggleSkeletons() {
+      const container = document.getElementById('skeletonContainer');
+      const btn = document.getElementById('toggleSkeletonBtn');
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        btn.innerText = 'Hide Skeleton Previews';
+      } else {
+        container.style.display = 'none';
+        btn.innerText = 'Show Skeleton Previews';
+      }
+    }
+  </script>
+</body></html>

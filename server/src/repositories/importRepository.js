@@ -10,9 +10,14 @@ function updateBatch(id, data) {
   return prisma.importBatch.update({ where: { id }, data });
 }
 
-function findAllBatches() {
+function findAllBatches(filter = {}, options = {}) {
+  const { take, ...restOptions } = options;
+
   return prisma.importBatch.findMany({
+    where: filter,
     orderBy: { createdAt: "desc" },
+    ...(take !== undefined ? { take } : {}),
+    ...restOptions,
     include: {
       uploadedBy: {
         select: { id: true, email: true, role: true },

@@ -10,7 +10,15 @@ function findByDate(metricDate, options = {}) {
 }
 
 function findAll(filters = {}) {
-  return prisma.branchDailyMetric.findMany(filters);
+  const { dateRangeFilter, ...rest } = filters;
+
+  return prisma.branchDailyMetric.findMany({
+    ...rest,
+    where: {
+      ...(dateRangeFilter || {}),
+      ...(rest.where || {}),
+    },
+  });
 }
 
 function create(data) {

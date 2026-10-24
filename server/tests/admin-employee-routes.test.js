@@ -331,7 +331,9 @@ test("GET /employees remains authenticated and route ordering stays distinct fro
   });
 
   assert.equal(employees.status, 200);
-  assert.ok(Array.isArray(employees.body));
+  assert.ok(Array.isArray(employees.body.data));
+  assert.equal(employees.body.pagination.page, 1);
+  assert.equal(employees.body.pagination.limit, 20);
 
   const employeeByCode = await request(app, "/employees/code/EMP-100", {
     method: "GET",
@@ -1123,4 +1125,106 @@ test("DELETE /admin/employees/:id fails transactionally without reporting a succ
   assert.equal(auditCalled, false);
   assert.equal(result.status, 404);
   assert.equal(result.body.message, "Employee not found");
+});
+
+test("GET /employees defaults to descending score order and supports custom sort validation", async () => {
+  const app = buildApp();
+  const userId = "user-sort-1";
+  prisma.user.findUnique = async ({ where }) => {
+    if (where.id === userId) {
+      return {
+        id: userId,
+        email: "sort@example.com",
+        role: "USER",
+        isActive: true,
+      };
+    }
+
+    return null;
+  };
+
+  prisma.employee.findMany = async () => [
+    {
+      id: "emp-low",
+      employeeCode: "EMP-LOW",
+      name: "Zoe",
+      createdAt: new Date().toISOString(),
+      performances: [
+        {
+          id: "perf-low",
+          orders: 10,
+          opsCR: 3,
+          dispatchTime: 10,
+          pickingTime: 2,
+          assignmentTime: 1,
+          prepTime: 3,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    },
+    {
+      id: "emp-high",
+      employeeCode: "EMP-HIGH",
+      name: "Alice",
+      createdAt: new Date().toISOString(),
+      performances: [
+        {
+          id: "perf-high",
+          orders: 25,
+          opsCR: 1,
+          dispatchTime: 7,
+          pickingTime: 1.7,
+          assignmentTime: 0.3,
+          prepTime: 2,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    },
+  ];
+
+  const token = makeToken(userId);
+  const sortedByScore = await request(app, "/employees", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(sortedByScore.status, 200);
+  assert.equal(sortedByScore.body.data[0].employeeCode, "EMP-HIGH");
+  assert.equal(sortedByScore.body.data[1].employeeCode, "EMP-LOW");
+
+  const customSort = await request(app, "/employees?sortBy=name&order=asc", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(customSort.status, 200);
+  assert.equal(customSort.body.data[0].name, "Alice");
+  assert.equal(customSort.body.data[1].name, "Zoe");
+
+  const invalidSortBy = await request(app, "/employees?sortBy=invalid", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(invalidSortBy.status, 400);
+  assert.equal(invalidSortBy.body.message, "Invalid sortBy value");
+
+  const missingSortBy = await request(app, "/employees?order=asc", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  assert.equal(missingSortBy.status, 400);
+  assert.equal(
+    missingSortBy.body.message,
+    "sortBy is required when order is provided",
+  );
 });

@@ -1,0 +1,6 @@
+{
+  "name": "Picker Performance - Industrial Operations Telemetry",
+  "description": "Real-time warehouse floor velocity tracking, picker leaderboards, branch KPIs, and operational data ingestion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

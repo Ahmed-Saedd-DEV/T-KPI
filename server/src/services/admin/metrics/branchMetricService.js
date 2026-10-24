@@ -1,8 +1,11 @@
 "use strict";
 
-const prisma = require("../../../prisma/prismaClient");
 const metricRepository = require("../../../repositories/metricRepository");
 const AppError = require("../../../utils/AppError");
+const { createAuditLog } = require("../../../utils/audit/createAuditLog");
+const {
+  buildDateRangeFilter,
+} = require("../../../utils/query/buildDateRangeFilter");
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -22,6 +25,10 @@ function serializeMetric(metric) {
     prepTime: metric.prepTime !== null ? Number(metric.prepTime) : null,
     assignmentTime:
       metric.assignmentTime !== null ? Number(metric.assignmentTime) : null,
+    orderCount: metric.orderCount !== null ? Number(metric.orderCount) : null,
+    atVendorTime:
+      metric.atVendorTime !== null ? Number(metric.atVendorTime) : null,
+    adjustTime: metric.adjustTime !== null ? Number(metric.adjustTime) : null,
   };
 }
 
@@ -54,6 +61,27 @@ async function createDailyMetric(data, actor) {
   ) {
     incomingFields.assignmentTime = Number(data.assignmentTime);
   }
+  if (
+    data.orderCount !== undefined &&
+    data.orderCount !== null &&
+    data.orderCount !== ""
+  ) {
+    incomingFields.orderCount = Number(data.orderCount);
+  }
+  if (
+    data.atVendorTime !== undefined &&
+    data.atVendorTime !== null &&
+    data.atVendorTime !== ""
+  ) {
+    incomingFields.atVendorTime = Number(data.atVendorTime);
+  }
+  if (
+    data.adjustTime !== undefined &&
+    data.adjustTime !== null &&
+    data.adjustTime !== ""
+  ) {
+    incomingFields.adjustTime = Number(data.adjustTime);
+  }
   if (recordedAt) {
     incomingFields.recordedAt = recordedAt;
   }
@@ -66,7 +94,20 @@ async function createDailyMetric(data, actor) {
       ...incomingFields,
       createdById: actor.id,
     });
-    return serializeMetric(metric);
+
+    await createAuditLog({
+      action: "CREATE",
+      entityType: "BranchDailyMetric",
+      entityId: metric.id,
+      beforeData: null,
+      afterData: {
+        metricDate: metric.metricDate,
+        ...incomingFields,
+      },
+      actor,
+    });
+
+    return { metric: serializeMetric(metric), created: true };
   }
 
   const conflictFields = [];
@@ -87,23 +128,28 @@ async function createDailyMetric(data, actor) {
 
   const updateData = { ...incomingFields, updatedById: actor.id };
   const metric = await metricRepository.update(metricDate, updateData);
-  return serializeMetric(metric);
+
+  await createAuditLog({
+    action: "UPDATE",
+    entityType: "BranchDailyMetric",
+    entityId: metric.id,
+    beforeData: { metricDate: existing.metricDate },
+    afterData: {
+      metricDate: metric.metricDate,
+      ...incomingFields,
+    },
+    actor,
+  });
+
+  return { metric: serializeMetric(metric), created: false };
 }
 
 async function getDailyMetrics(query = {}) {
-  const where = {};
-
-  const from = parseDate(query.from);
-  const to = parseDate(query.to);
-
-  if (from || to) {
-    where.metricDate = {};
-    if (from) where.metricDate.gte = from;
-    if (to) where.metricDate.lte = to;
-  }
+  const { from, to } = query;
+  const dateRangeFilter = buildDateRangeFilter(from, to);
 
   const metrics = await metricRepository.findAll({
-    where,
+    dateRangeFilter,
     orderBy: { metricDate: "desc" },
     include: {
       createdBy: { select: { id: true, email: true, role: true } },
@@ -165,6 +211,18 @@ async function updateDailyMetric(dateStr, data, actor) {
     },
   });
 
+  await createAuditLog({
+    action: "UPDATE",
+    entityType: "BranchDailyMetric",
+    entityId: metric.id,
+    beforeData: { metricDate: existing.metricDate },
+    afterData: {
+      metricDate: metric.metricDate,
+      ...updates,
+    },
+    actor,
+  });
+
   return serializeMetric(metric);
 }
 
@@ -177,29 +235,16 @@ async function deleteDailyMetric(dateStr, actor) {
     throw new AppError("No metric record found for this date", 404, true);
   }
 
-  const actorSnapshot =
-    actor && typeof actor === "object"
-      ? {
-          id: actor.id || null,
-          email: actor.email || null,
-          role: actor.role || null,
-        }
-      : null;
-
   try {
-    await prisma.$transaction(async (tx) => {
-      await metricRepository.deleteByDate(metricDate, tx);
+    await metricRepository.deleteByDate(metricDate);
 
-      await tx.auditLog.create({
-        data: {
-          action: "DELETE",
-          entityType: "BranchDailyMetric",
-          entityId: existing.id,
-          beforeData: existing,
-          actorUserId: actor && actor.id ? actor.id : null,
-          actorSnapshot,
-        },
-      });
+    await createAuditLog({
+      action: "DELETE",
+      entityType: "BranchDailyMetric",
+      entityId: existing.id,
+      beforeData: { metricDate: existing.metricDate },
+      afterData: null,
+      actor,
     });
 
     return null;

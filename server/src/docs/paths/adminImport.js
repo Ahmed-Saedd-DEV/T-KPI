@@ -29,7 +29,29 @@ module.exports = {
   "/admin/import/batches": {
     get: {
       tags: ["Admin - Import"],
-      summary: "List all import batches",
+      summary: "List import batches",
+      parameters: [
+        {
+          name: "status",
+          in: "query",
+          required: false,
+          schema: {
+            type: "string",
+            enum: ["PROCESSING", "COMPLETED", "FAILED"],
+          },
+        },
+        {
+          name: "limit",
+          in: "query",
+          required: false,
+          schema: {
+            type: "integer",
+            minimum: 1,
+            maximum: 100,
+            example: 10,
+          },
+        },
+      ],
       responses: {
         200: {
           description: "List of import batches",
@@ -41,6 +63,9 @@ module.exports = {
               },
             },
           },
+        },
+        400: {
+          description: "Invalid status value or Invalid limit value",
         },
         401: { description: "Unauthorized" },
         403: { description: "Forbidden" },
