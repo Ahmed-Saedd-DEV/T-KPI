@@ -3,7 +3,6 @@ import { useApp } from '../context/AppContext';
 import { BranchKpiKey } from '../types';
 import apiClient from '../api/client';
 
-// Map frontend KPI keys to backend field names
 const KPI_TO_BACKEND: Record<BranchKpiKey, string> = {
   CR: 'opsCR',
   PREP: 'prepTime',
@@ -21,7 +20,6 @@ export const AdminInputView: React.FC = () => {
   const [showSaveBanner, setShowSaveBanner] = useState(false);
   const [lastSavedKpi, setLastSavedKpi] = useState<BranchKpiKey | null>(null);
 
-  // Upload state
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [stagedFileName, setStagedFileName] = useState('');
   const [stagedFileSize, setStagedFileSize] = useState('');
@@ -30,28 +28,16 @@ export const AdminInputView: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Shared KPI Date
   const [sharedKpiDate, setSharedKpiDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
 
-  // Input Values for the 6 KPIs
   const [formValues, setFormValues] = useState<Record<BranchKpiKey, string>>({
-    CR: '',
-    PREP: '',
-    ORDER: '',
-    ATVENDOR: '',
-    Adjust: '',
-    Dispatch: '',
+    CR: '', PREP: '', ORDER: '', ATVENDOR: '', Adjust: '', Dispatch: '',
   });
 
   const [savedStatuses, setSavedStatuses] = useState<Record<BranchKpiKey, boolean>>({
-    CR: false,
-    PREP: false,
-    ORDER: false,
-    ATVENDOR: false,
-    Adjust: false,
-    Dispatch: false,
+    CR: false, PREP: false, ORDER: false, ATVENDOR: false, Adjust: false, Dispatch: false,
   });
 
   const [savingKey, setSavingKey] = useState<BranchKpiKey | null>(null);
@@ -66,16 +52,13 @@ export const AdminInputView: React.FC = () => {
   const handleSaveKpi = async (key: BranchKpiKey) => {
     const val = formValues[key];
     if (!val || !sharedKpiDate) return;
-
     setSavingKey(key);
     setSaveErrors((prev) => ({ ...prev, [key]: '' }));
-
     try {
       await apiClient.post('/admin/metrics/daily', {
         metricDate: sharedKpiDate,
         [KPI_TO_BACKEND[key]]: Number(val),
       });
-
       updateBranchKpi(key, val, sharedKpiDate);
       setSavedStatuses((prev) => ({ ...prev, [key]: true }));
       setLastSavedKpi(key);
@@ -117,25 +100,19 @@ export const AdminInputView: React.FC = () => {
 
   const handleExecuteUpload = async () => {
     if (!stagedFile) return;
-
     setIsUploading(true);
     setUploadProgress(10);
     setUploadError(null);
-
     const formData = new FormData();
     formData.append('file', stagedFile);
-
     try {
       setUploadProgress(40);
       const { data } = await apiClient.post('/admin/import/employees', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (e) => {
-          if (e.total) {
-            setUploadProgress(Math.round((e.loaded / e.total) * 60) + 20);
-          }
+          if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 60) + 20);
         },
       });
-
       setUploadProgress(100);
       const count: number = data.imported ?? data.count ?? data.total ?? 0;
       addUploadRecord(stagedFileName, stagedFileSize, count);
@@ -175,99 +152,77 @@ export const AdminInputView: React.FC = () => {
         <div className="flex items-center gap-3">
           <span className="text-[#64748B] text-sm font-medium">Warehouse Ops</span>
           <span className="text-[#283953] text-sm">/</span>
-          <h1 className="text-base font-bold text-white tracking-wide">
-            Admin / Input
-          </h1>
+          <h1 className="text-base font-bold text-white tracking-wide">Admin / Input</h1>
         </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5 pl-2">
-            <div className="w-8 h-8 rounded-full bg-[#1B2940] border border-[#283953] flex items-center justify-center font-bold text-xs text-[#38BDF8]">
-              {currentUser ? currentUser.displayName.slice(0, 2).toUpperCase() : 'AD'}
-            </div>
-            <div className="text-left hidden xl:block">
-              <div className="text-xs font-semibold text-white leading-tight">
-                {currentUser ? currentUser.displayName : 'Ops Admin'}
-              </div>
-              <div className="text-[10px] text-[#64748B]">{currentUser ? currentUser.role : 'ADMIN'}</div>
-            </div>
-            <button
-              type="button"
-              onClick={logout}
-              className="ml-2 rounded-lg border border-[#1E2D44] bg-[#151F32] px-2.5 py-1.5 text-[10px] font-medium text-[#E2E8F0] transition hover:border-[#38BDF8]/30 hover:text-[#38BDF8]"
-            >
-              Logout
-            </button>
+        <div className="flex items-center gap-2.5 pl-2">
+          <div className="w-8 h-8 rounded-full bg-[#1B2940] border border-[#283953] flex items-center justify-center font-bold text-xs text-[#38BDF8]">
+            {currentUser ? currentUser.displayName.slice(0, 2).toUpperCase() : 'AD'}
           </div>
+          <div className="text-left hidden xl:block">
+            <div className="text-xs font-semibold text-white leading-tight">
+              {currentUser ? currentUser.displayName : 'Ops Admin'}
+            </div>
+            <div className="text-[10px] text-[#64748B]">{currentUser ? currentUser.role : 'ADMIN'}</div>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="ml-2 rounded-lg border border-[#1E2D44] bg-[#151F32] px-2.5 py-1.5 text-[10px] font-medium text-[#E2E8F0] transition hover:border-[#38BDF8]/30 hover:text-[#38BDF8]"
+          >
+            Logout
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 custom-scroll">
         <div className="max-w-[1600px] mx-auto space-y-6 pb-20 lg:pb-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-[#1E2D44]">
-            <div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">System Controls & Data Ingestion</h2>
-              <p className="text-sm text-[#94A3B8] mt-1 max-w-3xl">
-                Floor scanner ledger ingestion, roster performance metrics batch parser, and branch operational KPI manual overrides.
-              </p>
-            </div>
-            </div>
-
-          {/* Tab Bar */}
-          <div className="flex items-center justify-between border-b border-[#1E2D44]">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveSubTab('import')}
-                className={`flex items-center gap-2.5 px-5 py-3 text-sm font-semibold rounded-t-lg transition-all duration-150 cursor-pointer ${
-                  activeSubTab === 'import'
-                    ? 'border-b-2 border-[#38BDF8] text-[#38BDF8] bg-[#151F32]/40'
-                    : 'border-b-2 border-transparent text-[#94A3B8] hover:text-white hover:bg-[#151F32]/20 font-medium'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[19px]">upload_file</span>
-                <span>Picker Performance Import</span>
-                <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-[#38BDF8]/15 text-[#38BDF8] font-mono">
-                  Ready
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveSubTab('kpi')}
-                className={`flex items-center gap-2.5 px-5 py-3 text-sm font-medium rounded-t-lg transition-all duration-150 cursor-pointer ${
-                  activeSubTab === 'kpi'
-                    ? 'border-b-2 border-[#38BDF8] text-[#38BDF8] bg-[#151F32]/40 font-semibold'
-                    : 'border-b-2 border-transparent text-[#94A3B8] hover:text-white hover:bg-[#151F32]/20'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[19px]">fact_check</span>
-                <span>Branch KPI Input</span>
-                <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-[#1B2940] text-[#64748B] font-mono">
-                  6 KPIs
-                </span>
-              </button>
-            </div>
-
+          <div className="pb-2 border-b border-[#1E2D44]">
+            <h2 className="text-2xl font-bold text-white tracking-tight">System Controls & Data Ingestion</h2>
+            <p className="text-sm text-[#94A3B8] mt-1 max-w-3xl">
+              Floor scanner ledger ingestion, roster performance metrics batch parser, and branch operational KPI manual overrides.
+            </p>
           </div>
 
-          {/* ============ TAB A: IMPORT ============ */}
+          {/* Tab Bar */}
+          <div className="flex border-b border-[#1E2D44]">
+            <button
+              onClick={() => setActiveSubTab('import')}
+              className={`flex items-center gap-2.5 px-5 py-3 text-sm font-semibold rounded-t-lg transition-all duration-150 cursor-pointer ${
+                activeSubTab === 'import'
+                  ? 'border-b-2 border-[#38BDF8] text-[#38BDF8] bg-[#151F32]/40'
+                  : 'border-b-2 border-transparent text-[#94A3B8] hover:text-white hover:bg-[#151F32]/20'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[19px]">upload_file</span>
+              <span>Picker Performance Import</span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab('kpi')}
+              className={`flex items-center gap-2.5 px-5 py-3 text-sm font-semibold rounded-t-lg transition-all duration-150 cursor-pointer ${
+                activeSubTab === 'kpi'
+                  ? 'border-b-2 border-[#38BDF8] text-[#38BDF8] bg-[#151F32]/40'
+                  : 'border-b-2 border-transparent text-[#94A3B8] hover:text-white hover:bg-[#151F32]/20'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[19px]">fact_check</span>
+              <span>Branch KPI Input</span>
+            </button>
+          </div>
+
+          {/* TAB A: IMPORT */}
           {activeSubTab === 'import' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Success Banner */}
               {showSuccessBanner && (
                 <div className="bg-[#151F32] border border-[#22C55E]/30 rounded-xl p-4 flex items-start justify-between relative overflow-hidden shadow-lg shadow-black/20">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#22C55E]"></div>
                   <div className="flex items-start gap-3.5 pl-1">
                     <div className="w-9 h-9 rounded-lg bg-[#22C55E]/10 text-[#22C55E] flex items-center justify-center shrink-0 border border-[#22C55E]/20">
-                      <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        check_circle
-                      </span>
+                      <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-white font-mono">Upload Successful</h4>
-                      <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                        Employee data imported and synced to the dashboard.
-                      </p>
+                      <h4 className="text-sm font-bold text-white">Upload Successful</h4>
+                      <p className="text-xs text-[#94A3B8] mt-1">Employee data imported and synced to the dashboard.</p>
                     </div>
                   </div>
                   <button onClick={() => setShowSuccessBanner(false)} className="text-[#64748B] hover:text-white p-1 rounded transition-colors cursor-pointer">
@@ -276,7 +231,6 @@ export const AdminInputView: React.FC = () => {
                 </div>
               )}
 
-              {/* Error Banner */}
               {uploadError && (
                 <div className="bg-[#151F32] border border-[#F87171]/30 rounded-xl p-4 flex items-start justify-between relative overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#F87171]"></div>
@@ -296,22 +250,18 @@ export const AdminInputView: React.FC = () => {
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Upload Panel */}
                 <div className="lg:col-span-7 flex flex-col gap-5">
                   <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center justify-between pb-4 border-b border-[#1E2D44]">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-[#38BDF8]/10 text-[#38BDF8] flex items-center justify-center border border-[#38BDF8]/20">
-                          <span className="material-symbols-outlined text-[18px]">table_view</span>
-                        </div>
-                        <div>
-                          <h3 className="text-base font-bold text-white">Data Sheet Ingestion</h3>
-                          <p className="text-xs text-[#94A3B8]">Import scanner shifts & terminal dumps</p>
-                        </div>
+                    <div className="flex items-center gap-2.5 pb-4 border-b border-[#1E2D44]">
+                      <div className="w-8 h-8 rounded-lg bg-[#38BDF8]/10 text-[#38BDF8] flex items-center justify-center border border-[#38BDF8]/20">
+                        <span className="material-symbols-outlined text-[18px]">table_view</span>
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Data Sheet Ingestion</h3>
+                        <p className="text-xs text-[#94A3B8]">Import scanner shifts & terminal dumps</p>
                       </div>
                     </div>
 
-                    {/* Drop Zone */}
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".xlsx,.xls" className="hidden" />
                     <div
                       onDragOver={(e) => e.preventDefault()}
@@ -322,14 +272,10 @@ export const AdminInputView: React.FC = () => {
                       <div className="w-14 h-14 rounded-2xl bg-[#1B2940] border border-[#1E2D44] group-hover:border-[#38BDF8] group-hover:scale-105 flex items-center justify-center mb-3 transition-all text-[#38BDF8] shadow-inner">
                         <span className="material-symbols-outlined text-3xl">upload_file</span>
                       </div>
-                      <h4 className="text-sm font-semibold text-white mb-1">
-                        Drag & drop Excel file (.xlsx) or browse
-                      </h4>
-                      <p className="text-xs text-[#94A3B8] mb-4 max-w-sm">
-                        Drop operational ledger from scanner base stations or terminal dumps.
-                      </p>
+                      <h4 className="text-sm font-semibold text-white mb-1">Drag & drop Excel file (.xlsx) or browse</h4>
+                      <p className="text-xs text-[#94A3B8] mb-4 max-w-sm">Drop operational ledger from scanner base stations or terminal dumps.</p>
                       <button type="button" className="px-4 py-2 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-white border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-semibold transition-all shadow-sm cursor-pointer">
-                        Browse Machine Files
+                        Browse Files
                       </button>
                       <div className="mt-4 pt-3 border-t border-[#1E2D44]/70 w-full max-w-xs flex items-center justify-center gap-1.5 text-[11px] text-[#64748B]">
                         <span className="material-symbols-outlined text-[15px]">info</span>
@@ -337,7 +283,6 @@ export const AdminInputView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Staged File */}
                     {stagedFileName && (
                       <div className="mt-5 p-4 bg-[#1B2940] rounded-xl border border-[#1E2D44] space-y-3">
                         <div className="flex items-center justify-between">
@@ -362,7 +307,6 @@ export const AdminInputView: React.FC = () => {
                             <span className="material-symbols-outlined text-[20px]">delete</span>
                           </button>
                         </div>
-
                         {uploadProgress > 0 && (
                           <div className="pt-2">
                             <div className="flex items-center justify-between text-xs mb-1.5">
@@ -382,7 +326,6 @@ export const AdminInputView: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Actions */}
                     <div className="mt-6 pt-4 border-t border-[#1E2D44] flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
                         <span className="material-symbols-outlined text-[16px] text-[#22C55E]">lock</span>
@@ -410,22 +353,17 @@ export const AdminInputView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Recent Uploads */}
                 <div className="lg:col-span-5 bg-[#151F32] border border-[#1E2D44] rounded-xl p-6 flex flex-col justify-between shadow-sm">
                   <div>
                     <div className="flex items-center justify-between pb-3.5 border-b border-[#1E2D44]">
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[#22C55E] text-[20px]">history</span>
                         <div>
-                          <h3 className="text-sm font-bold text-white">Recent Successful Uploads</h3>
+                          <h3 className="text-sm font-bold text-white">Recent Uploads</h3>
                           <p className="text-[11px] text-[#94A3B8]">Showing latest shift batch uploads</p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1B2940] text-[#64748B] border border-[#283953]">
-                        Audit Log
-                      </span>
                     </div>
-
                     <div className="divide-y divide-[#1E2D44] mt-1">
                       {recentUploads.length === 0 ? (
                         <p className="text-xs text-[#64748B] py-6 text-center">No uploads yet.</p>
@@ -433,12 +371,8 @@ export const AdminInputView: React.FC = () => {
                         recentUploads.map((upload) => (
                           <div key={upload.id} className="py-3 flex items-center justify-between gap-3 group">
                             <div className="min-w-0">
-                              <p className="text-xs font-mono font-medium text-white truncate group-hover:text-[#38BDF8] transition-colors">
-                                {upload.fileName}
-                              </p>
-                              <p className="text-[11px] text-[#64748B] tabular-nums mt-0.5">
-                                {upload.timestamp} • {upload.size}
-                              </p>
+                              <p className="text-xs font-mono font-medium text-white truncate group-hover:text-[#38BDF8] transition-colors">{upload.fileName}</p>
+                              <p className="text-[11px] text-[#64748B] tabular-nums mt-0.5">{upload.timestamp} • {upload.size}</p>
                             </div>
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 shrink-0">
                               <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
@@ -449,11 +383,10 @@ export const AdminInputView: React.FC = () => {
                       )}
                     </div>
                   </div>
-
                   <div className="pt-4 mt-6 border-t border-[#1E2D44] flex items-center justify-between text-xs text-[#94A3B8]">
-                    <span>Showing {recentUploads.length} audit rows</span>
+                    <span>{recentUploads.length} uploads</span>
                     <button onClick={handleExportAuditLog} className="text-[#38BDF8] hover:underline font-semibold flex items-center gap-1 cursor-pointer">
-                      <span>Export Audit Log</span>
+                      <span>Export Log</span>
                       <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                     </button>
                   </div>
@@ -462,7 +395,7 @@ export const AdminInputView: React.FC = () => {
             </div>
           )}
 
-          {/* ============ TAB B: KPI INPUT ============ */}
+          {/* TAB B: KPI INPUT */}
           {activeSubTab === 'kpi' && (
             <div className="space-y-6 animate-in fade-in duration-150">
               {showSaveBanner && lastSavedKpi && (
@@ -473,9 +406,7 @@ export const AdminInputView: React.FC = () => {
                       <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>save</span>
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-white">
-                        {lastSavedKpi} saved successfully for {sharedKpiDate}
-                      </h4>
+                      <h4 className="text-sm font-bold text-white">{lastSavedKpi} saved for {sharedKpiDate}</h4>
                       <p className="text-xs text-[#94A3B8] mt-1">Metric committed to backend and dashboard updated.</p>
                     </div>
                   </div>
@@ -485,12 +416,11 @@ export const AdminInputView: React.FC = () => {
                 </div>
               )}
 
-              {/* Date Picker */}
-              <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-                <div className="flex items-center gap-3 bg-[#1B2940] p-2.5 rounded-xl border border-[#283953] md:ml-auto">
+              <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 shadow-sm">
+                <div className="flex items-center gap-3 bg-[#1B2940] p-2.5 rounded-xl border border-[#283953] w-fit">
                   <label htmlFor="shared-kpi-date-input" className="text-xs font-semibold text-[#94A3B8] flex items-center gap-2 pl-2">
                     <span className="material-symbols-outlined text-[#38BDF8] text-[18px]">calendar_today</span>
-                    <span>Select KPI Date:</span>
+                    <span>KPI Date:</span>
                   </label>
                   <input
                     id="shared-kpi-date-input"
@@ -500,14 +430,9 @@ export const AdminInputView: React.FC = () => {
                     onChange={(e) => setSharedKpiDate(e.target.value)}
                     className="bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white text-xs font-mono font-semibold rounded-lg px-3 py-1.5 outline-none transition-all cursor-pointer"
                   />
-                  <div className="flex items-center gap-1 text-[11px] text-[#38BDF8] font-medium pr-2">
-                    <span className="text-[#F87171]">*</span>
-                    <span>Mandatory for saves</span>
-                  </div>
                 </div>
               </div>
 
-              {/* 6 KPI Forms */}
               {(
                 [
                   { key: 'CR' as BranchKpiKey, num: '01', label: 'Customer Return Index', desc: 'Customer Return rate ratio recorded for daily shift batches.', unit: '%', step: '0.01' },
@@ -521,17 +446,13 @@ export const AdminInputView: React.FC = () => {
                 <div key={key} className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">
-                        {num} / KPI
-                      </span>
+                      <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">{num} / KPI</span>
                       <span className="text-[11px] text-[#64748B] font-medium">{label}</span>
                     </div>
                     <h4 className="text-lg font-bold text-white">{key}</h4>
                     <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">{desc}</p>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-                        Numeric Input Value
-                      </label>
+                      <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">Value</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -543,9 +464,7 @@ export const AdminInputView: React.FC = () => {
                         />
                         <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">{unit}</span>
                       </div>
-                      {saveErrors[key] && (
-                        <p className="text-xs text-[#F87171] mt-1">{saveErrors[key]}</p>
-                      )}
+                      {saveErrors[key] && <p className="text-xs text-[#F87171] mt-1">{saveErrors[key]}</p>}
                     </div>
                   </div>
                   <div className="mt-5 pt-3.5 border-t border-[#1E2D44] flex items-center justify-between">
@@ -555,7 +474,7 @@ export const AdminInputView: React.FC = () => {
                         Saved {sharedKpiDate}
                       </span>
                     ) : (
-                      <span className="text-xs text-[#64748B] font-medium">Unsaved buffer</span>
+                      <span className="text-xs text-[#64748B] font-medium">Unsaved</span>
                     )}
                     <button
                       type="button"
