@@ -10,4 +10,4 @@ RUN npx prisma generate
 COPY . .
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/bootstrap-admin.js && npm start"]
