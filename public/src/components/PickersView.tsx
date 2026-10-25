@@ -5,6 +5,9 @@ import { Picker, PerformanceTier } from '../types';
 export const PickersView: React.FC = () => {
   const {
     pickers,
+    pickersLoading,
+    pickersError,
+    fetchPickers,
     addPicker,
     removePicker,
     selectedTelemetryPicker,
@@ -285,6 +288,29 @@ export const PickersView: React.FC = () => {
             </span>
           </div>
         </section>
+
+        {pickersLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+            {[1,2,3,4,5,6].map((n) => (
+              <div key={n} className="bg-[#151F32] border border-[#1E293B] rounded-xl p-5 h-48 animate-pulse">
+                <div className="h-4 w-24 bg-[#1E293B] rounded mb-3"></div>
+                <div className="h-6 w-36 bg-[#1E293B] rounded mb-5"></div>
+                <div className="flex gap-4"><div className="w-16 h-16 rounded-full bg-[#1E293B]"></div><div className="flex-1 space-y-2"><div className="h-4 bg-[#1E293B] rounded"></div><div className="h-4 bg-[#1E293B] rounded w-3/4"></div></div></div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {pickersError && !pickersLoading && (
+          <div className="bg-[#151F32] border border-[#F87171]/30 rounded-xl p-8 flex flex-col items-center gap-3 text-center">
+            <span className="material-symbols-outlined text-[#F87171] text-[32px]">sync_problem</span>
+            <p className="text-sm font-bold text-white">Failed to load pickers</p>
+            <p className="text-xs text-[#94A3B8]">{pickersError}</p>
+            <button onClick={fetchPickers} className="px-4 py-2 bg-[#1B2940] border border-[#334155] rounded-lg text-xs font-semibold text-[#38BDF8] hover:bg-[#223554] transition-colors">
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Responsive Picker Card Grid */}
         {paginatedPickers.length > 0 ? (

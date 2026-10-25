@@ -7,11 +7,7 @@ import {
   RecentUpload,
   PerformanceTier,
 } from '../types';
-import {
-  INITIAL_PICKERS,
-  INITIAL_BRANCH_KPIS,
-  INITIAL_UPLOADS,
-} from '../data/initialData';
+import { INITIAL_BRANCH_KPIS, INITIAL_UPLOADS } from '../data/initialData';
 import apiClient from '../api/client';
 
 interface ToastMessage {
@@ -38,6 +34,9 @@ interface AppContextType {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   pickers: Picker[];
+  pickersLoading: boolean;
+  pickersError: string | null;
+  fetchPickers: () => Promise<void>;
   addPicker: (id: string, name: string) => { success: boolean; error?: string };
   removePicker: (id: string) => boolean;
   selectedTelemetryPicker: Picker | null;
@@ -68,16 +67,101 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 const AUTH_SESSION_KEY = 'picker-performance-dashboard-session';
 
+// ─── Tier helpers ────────────────────────────────────────────────────────────
+function getTier(score: number | null): PerformanceTier {
+  if (score === null) return 'low';
+  if (score >= 90) return 'excellent';
+  if (score >= 80) return 'very_good';
+  if (score >= 70) return 'good';
+  if (score >= 60) return 'average';
+  if (score >= 50) return 'below_average';
+  return 'low';
+}
+
+function getTierLabel(tier: PerformanceTier): string {
+  const labels: Record<PerformanceTier, string> = {
+    excellent: 'Excellent',
+    very_good: 'Very Good',
+    good: 'Good',
+    average: 'Average',
+    below_average: 'Below Avg',
+    low: 'Low',
+  };
+  return labels[tier];
+}
+
+function getTierColor(tier: PerformanceTier): string {
+  const colors: Record<PerformanceTier, string> = {
+    excellent: '#22C55E',
+    very_good: '#52e87c',
+    good: '#FDE047',
+    average: '#FBBF24',
+    below_average: '#FB923C',
+    low: '#F87171',
+  };
+  return colors[tier];
+}
+
+// ─── Backend → Picker mapper ──────────────────────────────────────────────────
+interface BackendEmployee {
+  id: string;
+  employeeCode: string;
+  name: string;
+  orders: number | null;
+  metrics: {
+    opsCR: number;
+    dispatchTime: number;
+    pickingTime: number;
+    assignmentTime: number;
+    prepTime: number;
+  } | null;
+  kpi: {
+    overallScore: number | null;
+    scores: Record<string, number | null>;
+  } | null;
+}
+
+function mapEmployeeToPicker(emp: BackendEmployee): Picker {
+  const score = emp.kpi?.overallScore ?? null;
+  const tier = getTier(score);
+  const metrics = emp.metrics;
+
+  const fmtSec = (v: number | undefined) =>
+    v !== undefined ? `${v.toFixed(2)}s` : '—';
+  const fmtMin = (v: number | undefined) =>
+    v !== undefined ? `${Math.floor(v / 60)}m ${Math.round(v % 60)}s` : '—';
+
+  return {
+    id: emp.employeeCode,
+    name: emp.name,
+    velocityScore: score !== null ? Math.round(score) : 0,
+    tier,
+    tierLabel: getTierLabel(tier),
+    tierColor: getTierColor(tier),
+    orders: emp.orders ?? 0,
+    zone: 'Warehouse Floor',
+    subBadge: score !== null ? `Score: ${score.toFixed(1)}` : 'No data',
+    telemetry: {
+      orders: emp.orders ?? 0,
+      pickingTime: metrics ? fmtMin(metrics.pickingTime) : '—',
+      assignmentTime: metrics ? fmtSec(metrics.assignmentTime) : '—',
+      prepTime: metrics ? fmtSec(metrics.prepTime) : '—',
+      dispatchTime: metrics ? fmtSec(metrics.dispatchTime) : '—',
+      opsCr: metrics ? `${metrics.opsCR.toFixed(2)}%` : '—',
+      detailedZone: 'Warehouse Floor',
+    },
+  };
+}
+
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
 const readStoredSession = (): AuthSession | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const rawSession = window.localStorage.getItem(AUTH_SESSION_KEY);
-    if (!rawSession) return null;
-    const parsedSession: AuthSession = JSON.parse(rawSession);
-    if (!parsedSession?.token || !parsedSession?.user || !parsedSession?.expiresAt) {
-      return null;
-    }
-    return parsedSession;
+    const raw = window.localStorage.getItem(AUTH_SESSION_KEY);
+    if (!raw) return null;
+    const parsed: AuthSession = JSON.parse(raw);
+    if (!parsed?.token || !parsed?.user || !parsed?.expiresAt) return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -89,16 +173,17 @@ const clearStoredSession = () => {
   }
 };
 
+// ─── Provider ────────────────────────────────────────────────────────────────
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
-  const [pickers, setPickers] = useState<Picker[]>(INITIAL_PICKERS);
+  const [pickers, setPickers] = useState<Picker[]>([]);
+  const [pickersLoading, setPickersLoading] = useState(false);
+  const [pickersError, setPickersError] = useState<string | null>(null);
   const [selectedTelemetryPicker, setSelectedTelemetryPicker] = useState<Picker | null>(null);
   const [isAddPickerOpen, setIsAddPickerOpen] = useState(false);
   const [isRemovePickerOpen, setIsRemovePickerOpen] = useState(false);
-
   const [branchKpis, setBranchKpis] = useState<Record<BranchKpiKey, BranchKpiConfig>>(INITIAL_BRANCH_KPIS);
   const [activeKpiKey, setActiveKpiKey] = useState<BranchKpiKey>('CR');
-
   const [recentUploads, setRecentUploads] = useState<RecentUpload[]>(INITIAL_UPLOADS);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -107,6 +192,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loginError, setLoginError] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
 
+  // ── Fetch pickers from backend ──
+  const fetchPickers = async () => {
+    setPickersLoading(true);
+    setPickersError(null);
+    try {
+      const { data } = await apiClient.get<{ data: BackendEmployee[] }>('/employees', {
+        params: { limit: 100 },
+      });
+      setPickers((data.data ?? []).map(mapEmployeeToPicker));
+    } catch {
+      setPickersError('Failed to load pickers. Retrying will restore data.');
+    } finally {
+      setPickersLoading(false);
+    }
+  };
+
+  // ── Auth init ──
   useEffect(() => {
     const storedSession = readStoredSession();
 
@@ -139,23 +241,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('session-expired', handleExpired);
   }, []);
 
+  // ── Fetch pickers once authenticated ──
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPickers();
+    }
+  }, [isAuthenticated]);
+
+  // ── Toast ──
   const showToast = (title: string, description: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Date.now().toString();
     setToast({ id, title, description, type });
-    setTimeout(() => {
-      setToast((current) => (current?.id === id ? null : current));
-    }, 4500);
+    setTimeout(() => setToast((cur) => (cur?.id === id ? null : cur)), 4500);
   };
 
   const dismissToast = () => setToast(null);
   const clearLoginError = () => setLoginError(null);
 
+  // ── Auth ──
   const logout = () => {
     clearStoredSession();
     setIsAuthenticated(false);
     setCurrentUser(null);
     setLoginError(null);
     setSessionExpired(false);
+    setPickers([]);
     setActiveTab('dashboard');
   };
 
@@ -205,51 +315,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // ── Pickers (local operations) ──
   const addPicker = (id: string, name: string): { success: boolean; error?: string } => {
     const trimmedId = id.trim().toUpperCase();
     const trimmedName = name.trim();
 
-    if (!trimmedId || !trimmedName) {
-      return { success: false, error: 'Picker ID and Name are required.' };
-    }
-
+    if (!trimmedId || !trimmedName) return { success: false, error: 'Picker ID and Name are required.' };
     if (pickers.some((p) => p.id.toUpperCase() === trimmedId)) {
-      return {
-        success: false,
-        error: `Duplicate ID: Terminal badge ${trimmedId} already registered.`,
-      };
+      return { success: false, error: `Duplicate ID: Terminal badge ${trimmedId} already registered.` };
     }
 
-    const defaultVelocity = 88;
     const tier: PerformanceTier = 'very_good';
-
     const newPicker: Picker = {
       id: trimmedId,
       name: trimmedName,
-      velocityScore: defaultVelocity,
+      velocityScore: 88,
       tier,
-      tierLabel: 'Very Good',
-      tierColor: '#52e87c',
-      orders: 110,
-      zone: 'Zone B · Shift B',
+      tierLabel: getTierLabel(tier),
+      tierColor: getTierColor(tier),
+      orders: 0,
+      zone: 'Warehouse Floor',
       subBadge: 'New Registration',
       telemetry: {
-        orders: 110,
-        ordersDelta: '+1 vs avg',
-        pickingTime: '2m 05s',
-        assignmentTime: '26s',
-        prepTime: '50s',
-        dispatchTime: '9.10s',
-        opsCr: '2.4%',
-        detailedZone: 'Zone B - Mezzanine Staging',
+        orders: 0,
+        pickingTime: '—',
+        assignmentTime: '—',
+        prepTime: '—',
+        dispatchTime: '—',
+        opsCr: '—',
+        detailedZone: 'Warehouse Floor',
       },
     };
 
     setPickers((prev) => [newPicker, ...prev]);
-    showToast(
-      'Picker Registered Successfully',
-      `${trimmedName} (${trimmedId}) assigned to Zone B · Shift B.`
-    );
+    showToast('Picker Registered', `${trimmedName} (${trimmedId}) added.`);
     return { success: true };
   };
 
@@ -257,24 +356,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const candidate = pickers.find((p) => p.id === id);
     if (!candidate) return false;
     setPickers((prev) => prev.filter((p) => p.id !== id));
-    showToast(
-      'Picker Removed Successfully',
-      `Badge record ${candidate.id} (${candidate.name}) archived and shifts synchronized.`
-    );
+    showToast('Picker Removed', `Badge record ${candidate.id} (${candidate.name}) archived.`);
     return true;
   };
 
+  // ── KPIs ──
   const updateBranchKpi = (key: BranchKpiKey, value: string, date: string) => {
     setBranchKpis((prev) => {
       const current = prev[key];
       const updatedValue =
         value.includes('%') || value.includes('s') || value.includes('m')
           ? value
-          : `${value}${
-              current.unit === '%' ? '%' :
-              current.unit === 's' ? 's' :
-              current.unit === 'm' ? 'm' : ''
-            }`;
+          : `${value}${current.unit === '%' ? '%' : current.unit === 's' ? 's' : current.unit === 'm' ? 'm' : ''}`;
 
       return {
         ...prev,
@@ -286,22 +379,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    showToast(
-      `${key} value saved successfully`,
-      `Updated ${key} to ${value} for ${date}. Branch KPIs and Dashboard updated.`
-    );
+    showToast(`${key} saved`, `Updated ${key} to ${value} for ${date}.`);
   };
 
+  // ── Uploads ──
   const addUploadRecord = (fileName: string, size: string, shiftsCount: number) => {
     const newRecord: RecentUpload = {
       id: `up-${Date.now()}`,
       fileName,
       timestamp:
-        new Date().toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        }) +
+        new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
         ' ' +
         new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
       size,
@@ -310,10 +397,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setRecentUploads((prev) => [newRecord, ...prev]);
-    showToast(
-      'Shift Ledger Ingested',
-      `Ingested ${shiftsCount.toLocaleString()} shift logs from ${fileName}.`
-    );
+    showToast('Upload Successful', `Ingested ${shiftsCount.toLocaleString()} records from ${fileName}.`);
+
+    // Refresh pickers after successful import
+    fetchPickers();
   };
 
   return (
@@ -322,6 +409,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTab,
         setActiveTab,
         pickers,
+        pickersLoading,
+        pickersError,
+        fetchPickers,
         addPicker,
         removePicker,
         selectedTelemetryPicker,
@@ -356,8 +446,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
+  if (!context) throw new Error('useApp must be used within an AppProvider');
   return context;
 };
