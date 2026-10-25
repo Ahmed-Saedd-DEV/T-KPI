@@ -94,17 +94,20 @@ model EmployeePerformance {
 }
 
 model BranchDailyMetric {
-  id            String   @id @default(uuid()) @db.Uuid
-  metricDate    DateTime @db.Date @unique
-  recordedAt    DateTime?
-  opsCR         Decimal?  @db.Decimal(10, 3)
-  dispatchTime  Decimal?  @db.Decimal(10, 3)
-  prepTime      Decimal?  @db.Decimal(10, 3)
-  assignmentTime Decimal? @db.Decimal(10, 3)
-  createdById   String   @db.Uuid
-  updatedById   String?  @db.Uuid
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(uuid()) @db.Uuid
+  metricDate     DateTime @db.Date @unique
+  recordedAt     DateTime?
+  opsCR          Decimal?  @db.Decimal(10, 3)
+  dispatchTime   Decimal?  @db.Decimal(10, 3)
+  prepTime       Decimal?  @db.Decimal(10, 3)
+  assignmentTime Decimal?  @db.Decimal(10, 3)
+  orderCount     Int?
+  atVendorTime   Decimal?  @db.Decimal(10, 3)
+  adjustTime     Decimal?  @db.Decimal(10, 3)
+  createdById    String   @db.Uuid
+  updatedById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   createdBy User @relation("CreatedMetrics", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User? @relation("UpdatedMetrics", fields: [updatedById], references: [id], onDelete: SetNull)
