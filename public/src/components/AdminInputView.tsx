@@ -1,36 +1,52 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BranchKpiKey } from '../types';
+import apiClient from '../api/client';
+
+// Map frontend KPI keys to backend field names
+const KPI_TO_BACKEND: Record<BranchKpiKey, string> = {
+  CR: 'opsCR',
+  PREP: 'prepTime',
+  ORDER: 'orderCount',
+  ATVENDOR: 'atVendorTime',
+  Adjust: 'adjustTime',
+  Dispatch: 'dispatchTime',
+};
 
 export const AdminInputView: React.FC = () => {
   const { branchKpis, updateBranchKpi, recentUploads, addUploadRecord, currentUser, logout } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'import' | 'kpi'>('import');
-  const [showSuccessBanner, setShowSuccessBanner] = useState(true);
-  const [showSaveBanner, setShowSaveBanner] = useState(true);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [showSaveBanner, setShowSaveBanner] = useState(false);
+  const [lastSavedKpi, setLastSavedKpi] = useState<BranchKpiKey | null>(null);
 
-  // Ingestion File State
-  const [stagedFileName, setStagedFileName] = useState('Picker_Performance_Week42_2024.xlsx');
-  const [stagedFileSize, setStagedFileSize] = useState('2.4 MB');
-  const [uploadProgress, setUploadProgress] = useState(85);
+  // Upload state
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const [stagedFileName, setStagedFileName] = useState('');
+  const [stagedFileSize, setStagedFileSize] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Shared KPI Date
-  const [sharedKpiDate, setSharedKpiDate] = useState('2024-10-18');
+  const [sharedKpiDate, setSharedKpiDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
 
   // Input Values for the 6 KPIs
   const [formValues, setFormValues] = useState<Record<BranchKpiKey, string>>({
-    CR: '3.25',
-    PREP: '42.4',
-    ORDER: '1420',
-    ATVENDOR: '18.2',
-    Adjust: '14',
-    Dispatch: '8.65',
+    CR: '',
+    PREP: '',
+    ORDER: '',
+    ATVENDOR: '',
+    Adjust: '',
+    Dispatch: '',
   });
 
   const [savedStatuses, setSavedStatuses] = useState<Record<BranchKpiKey, boolean>>({
-    CR: true,
+    CR: false,
     PREP: false,
     ORDER: false,
     ATVENDOR: false,
@@ -38,24 +54,51 @@ export const AdminInputView: React.FC = () => {
     Dispatch: false,
   });
 
+  const [savingKey, setSavingKey] = useState<BranchKpiKey | null>(null);
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
+
   const handleKpiValueChange = (key: BranchKpiKey, val: string) => {
     setFormValues((prev) => ({ ...prev, [key]: val }));
     setSavedStatuses((prev) => ({ ...prev, [key]: false }));
+    setSaveErrors((prev) => ({ ...prev, [key]: '' }));
   };
 
-  const handleSaveKpi = (key: BranchKpiKey) => {
+  const handleSaveKpi = async (key: BranchKpiKey) => {
     const val = formValues[key];
-    updateBranchKpi(key, val, sharedKpiDate);
-    setSavedStatuses((prev) => ({ ...prev, [key]: true }));
-    setShowSaveBanner(true);
+    if (!val || !sharedKpiDate) return;
+
+    setSavingKey(key);
+    setSaveErrors((prev) => ({ ...prev, [key]: '' }));
+
+    try {
+      await apiClient.post('/admin/metrics/daily', {
+        metricDate: sharedKpiDate,
+        [KPI_TO_BACKEND[key]]: Number(val),
+      });
+
+      updateBranchKpi(key, val, sharedKpiDate);
+      setSavedStatuses((prev) => ({ ...prev, [key]: true }));
+      setLastSavedKpi(key);
+      setShowSaveBanner(true);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })
+          ?.response?.data?.message ?? 'Failed to save. Try again.';
+      setSaveErrors((prev) => ({ ...prev, [key]: msg }));
+    } finally {
+      setSavingKey(null);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setStagedFile(file);
       setStagedFileName(file.name);
       setStagedFileSize(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
       setUploadProgress(0);
+      setUploadError(null);
+      setShowSuccessBanner(false);
     }
   };
 
@@ -63,29 +106,59 @@ export const AdminInputView: React.FC = () => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file) {
+      setStagedFile(file);
       setStagedFileName(file.name);
       setStagedFileSize(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
       setUploadProgress(0);
+      setUploadError(null);
+      setShowSuccessBanner(false);
     }
   };
 
-  const handleExecuteUpload = () => {
-    if (!stagedFileName) return;
+  const handleExecuteUpload = async () => {
+    if (!stagedFile) return;
+
     setIsUploading(true);
-    let current = 0;
-    const interval = setInterval(() => {
-      current += 20;
-      setUploadProgress(Math.min(100, current));
-      if (current >= 100) {
-        clearInterval(interval);
-        setIsUploading(false);
-        addUploadRecord(stagedFileName, stagedFileSize, 1280);
-      }
-    }, 200);
+    setUploadProgress(10);
+    setUploadError(null);
+
+    const formData = new FormData();
+    formData.append('file', stagedFile);
+
+    try {
+      setUploadProgress(40);
+      const { data } = await apiClient.post('/admin/import/employees', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => {
+          if (e.total) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 60) + 20);
+          }
+        },
+      });
+
+      setUploadProgress(100);
+      const count: number = data.imported ?? data.count ?? data.total ?? 0;
+      addUploadRecord(stagedFileName, stagedFileSize, count);
+      setShowSuccessBanner(true);
+      setStagedFile(null);
+      setStagedFileName('');
+      setStagedFileSize('');
+      setUploadProgress(0);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })
+          ?.response?.data?.message ?? 'Upload failed. Check the file and try again.';
+      setUploadError(msg);
+      setUploadProgress(0);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleExportAuditLog = () => {
-    const logData = recentUploads.map((u) => `${u.timestamp} | ${u.fileName} | ${u.size} | ${u.status}`).join('\n');
+    const logData = recentUploads
+      .map((u) => `${u.timestamp} | ${u.fileName} | ${u.size} | ${u.status}`)
+      .join('\n');
     const blob = new Blob([logData], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -97,7 +170,7 @@ export const AdminInputView: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#0B1120]">
-      {/* Desktop Top Header Bar */}
+      {/* Header */}
       <header className="h-16 bg-[#0E1626]/90 backdrop-blur border-b border-[#1E2D44] flex items-center justify-between px-4 md:px-8 sticky top-0 z-20 shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-[#64748B] text-sm font-medium">Warehouse Ops</span>
@@ -117,7 +190,7 @@ export const AdminInputView: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#38BDF8]"></span>
             </span>
             <span className="text-[#94A3B8] font-medium">
-              Hub Live: <span className="text-[#F1F5F9] font-semibold">1,280 Shifts Parsed</span>
+              Hub Live: <span className="text-[#F1F5F9] font-semibold">{recentUploads.length} Batches Uploaded</span>
             </span>
           </div>
 
@@ -139,7 +212,7 @@ export const AdminInputView: React.FC = () => {
               <div className="text-xs font-semibold text-white leading-tight">
                 {currentUser ? currentUser.displayName : 'Ops Admin'}
               </div>
-              <div className="text-[10px] text-[#64748B]">{currentUser ? currentUser.role : 'Floor Supervisor'}</div>
+              <div className="text-[10px] text-[#64748B]">{currentUser ? currentUser.role : 'ADMIN'}</div>
             </div>
             <button
               type="button"
@@ -152,10 +225,9 @@ export const AdminInputView: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content Canvas */}
+      {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 custom-scroll">
         <div className="max-w-[1600px] mx-auto space-y-6 pb-20 lg:pb-8">
-          {/* Header Content Banner & Subtitle */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-[#1E2D44]">
             <div>
               <h2 className="text-2xl font-bold text-white tracking-tight">System Controls & Data Ingestion</h2>
@@ -169,7 +241,7 @@ export const AdminInputView: React.FC = () => {
             </div>
           </div>
 
-          {/* Clean Tab Bar */}
+          {/* Tab Bar */}
           <div className="flex items-center justify-between border-b border-[#1E2D44]">
             <div className="flex gap-2">
               <button
@@ -209,9 +281,7 @@ export const AdminInputView: React.FC = () => {
             </div>
           </div>
 
-          {/* ============================================================== */}
-          {/* TAB A: PICKER PERFORMANCE IMPORT                               */}
-          {/* ============================================================== */}
+          {/* ============ TAB A: IMPORT ============ */}
           {activeSubTab === 'import' && (
             <div className="space-y-6 animate-in fade-in duration-150">
               {/* Success Banner */}
@@ -225,32 +295,39 @@ export const AdminInputView: React.FC = () => {
                       </span>
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white font-mono">
-                          Picker_Performance_Week42_2024.xlsx
-                        </h4>
-                        <span className="px-2 py-0.2 rounded text-[10px] font-semibold bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30 uppercase tracking-wide">
-                          Committed
-                        </span>
-                      </div>
+                      <h4 className="text-sm font-bold text-white font-mono">Upload Successful</h4>
                       <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                        Ingested <span className="text-white font-medium">1,280 shift performance logs</span>. Telemetry parsed, deduplicated, and dispatched to real-time picker velocity leaderboards.
+                        Employee data imported and synced to the dashboard.
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowSuccessBanner(false)}
-                    aria-label="Dismiss banner"
-                    className="text-[#64748B] hover:text-white p-1 rounded transition-colors cursor-pointer"
-                  >
+                  <button onClick={() => setShowSuccessBanner(false)} className="text-[#64748B] hover:text-white p-1 rounded transition-colors cursor-pointer">
                     <span className="material-symbols-outlined text-[18px]">close</span>
                   </button>
                 </div>
               )}
 
-              {/* Layout: 7 Cols Upload / 5 Cols Recent */}
+              {/* Error Banner */}
+              {uploadError && (
+                <div className="bg-[#151F32] border border-[#F87171]/30 rounded-xl p-4 flex items-start justify-between relative overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#F87171]"></div>
+                  <div className="flex items-start gap-3.5 pl-1">
+                    <div className="w-9 h-9 rounded-lg bg-[#F87171]/10 text-[#F87171] flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[20px]">error</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Upload Failed</h4>
+                      <p className="text-xs text-[#94A3B8] mt-1">{uploadError}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setUploadError(null)} className="text-[#64748B] hover:text-white p-1 rounded cursor-pointer">
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Panel: Excel Upload Area */}
+                {/* Upload Panel */}
                 <div className="lg:col-span-7 flex flex-col gap-5">
                   <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-6 shadow-sm">
                     <div className="flex items-center justify-between pb-4 border-b border-[#1E2D44]">
@@ -263,21 +340,13 @@ export const AdminInputView: React.FC = () => {
                           <p className="text-xs text-[#94A3B8]">Import scanner shifts & terminal dumps</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#1B2940] text-[#38BDF8] border border-[#283953] font-mono">
-                          Target: ELMONTAZA_DS-68
-                        </span>
-                      </div>
+                      <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#1B2940] text-[#38BDF8] border border-[#283953] font-mono">
+                        Target: ELMONTAZA_DS-68
+                      </span>
                     </div>
 
-                    {/* Drag-and-drop & File Browser Upload Zone */}
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileSelect}
-                      accept=".xlsx,.xls"
-                      className="hidden"
-                    />
+                    {/* Drop Zone */}
+                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".xlsx,.xls" className="hidden" />
                     <div
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={handleDrop}
@@ -288,24 +357,21 @@ export const AdminInputView: React.FC = () => {
                         <span className="material-symbols-outlined text-3xl">upload_file</span>
                       </div>
                       <h4 className="text-sm font-semibold text-white mb-1">
-                        Drag & drop Excel file (.xlsx, .xls) or browse
+                        Drag & drop Excel file (.xlsx) or browse
                       </h4>
                       <p className="text-xs text-[#94A3B8] mb-4 max-w-sm">
                         Drop operational ledger from scanner base stations or terminal dumps.
                       </p>
-                      <button
-                        type="button"
-                        className="px-4 py-2 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-white border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-semibold transition-all shadow-sm cursor-pointer"
-                      >
+                      <button type="button" className="px-4 py-2 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-white border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-semibold transition-all shadow-sm cursor-pointer">
                         Browse Machine Files
                       </button>
                       <div className="mt-4 pt-3 border-t border-[#1E2D44]/70 w-full max-w-xs flex items-center justify-center gap-1.5 text-[11px] text-[#64748B]">
-                        <span className="material-symbols-outlined text-[15px] text-[#64748B]">info</span>
-                        <span>Supported formats: .xlsx, .xls (Max: 25MB)</span>
+                        <span className="material-symbols-outlined text-[15px]">info</span>
+                        <span>Supported: .xlsx only (Max: 10MB)</span>
                       </div>
                     </div>
 
-                    {/* Selected File Details Card */}
+                    {/* Staged File */}
                     {stagedFileName && (
                       <div className="mt-5 p-4 bg-[#1B2940] rounded-xl border border-[#1E2D44] space-y-3">
                         <div className="flex items-center justify-between">
@@ -318,107 +384,67 @@ export const AdminInputView: React.FC = () => {
                               <div className="flex items-center gap-2 mt-0.5 text-xs text-[#94A3B8]">
                                 <span className="font-medium">{stagedFileSize}</span>
                                 <span className="text-[#283953]">•</span>
-                                <span className="text-[#38BDF8] font-medium">Ready for parser execution</span>
+                                <span className="text-[#38BDF8] font-medium">Ready for upload</span>
                               </div>
                             </div>
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              setStagedFileName('');
-                              setUploadProgress(0);
-                            }}
+                            onClick={() => { setStagedFile(null); setStagedFileName(''); setUploadProgress(0); }}
                             className="text-[#64748B] hover:text-[#F87171] p-2 rounded-lg hover:bg-[#151F32] transition-colors cursor-pointer"
-                            title="Clear staged file"
                           >
                             <span className="material-symbols-outlined text-[20px]">delete</span>
                           </button>
                         </div>
 
-                        {/* Progress Bar */}
-                        <div className="pt-2">
-                          <div className="flex items-center justify-between text-xs mb-1.5">
-                            <span className="text-[#38BDF8] font-semibold flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse"></span>
-                              {uploadProgress}% Uploading...
-                            </span>
-                            <span className="tabular-nums font-mono text-[#94A3B8] text-xs">
-                              {((uploadProgress / 100) * 2.4).toFixed(2)} MB / {stagedFileSize}
-                            </span>
+                        {uploadProgress > 0 && (
+                          <div className="pt-2">
+                            <div className="flex items-center justify-between text-xs mb-1.5">
+                              <span className="text-[#38BDF8] font-semibold flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse"></span>
+                                {uploadProgress}% {isUploading ? 'Uploading...' : 'Done'}
+                              </span>
+                            </div>
+                            <div className="w-full bg-[#151F32] rounded-full h-2 overflow-hidden border border-[#1E2D44]">
+                              <div
+                                className="bg-[#38BDF8] h-2 rounded-full transition-all duration-300 shadow-sm shadow-[#38BDF8]/50"
+                                style={{ width: `${uploadProgress}%` }}
+                              ></div>
+                            </div>
                           </div>
-                          <div className="w-full bg-[#151F32] rounded-full h-2 overflow-hidden border border-[#1E2D44]">
-                            <div
-                              className="bg-[#38BDF8] h-2 rounded-full transition-all duration-300 shadow-sm shadow-[#38BDF8]/50"
-                              style={{ width: `${uploadProgress}%` }}
-                            ></div>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Action Controls */}
+                    {/* Actions */}
                     <div className="mt-6 pt-4 border-t border-[#1E2D44] flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
                         <span className="material-symbols-outlined text-[16px] text-[#22C55E]">lock</span>
-                        <span>MD5 Hash check enabled before commit</span>
+                        <span>Only .xlsx files accepted</span>
                       </div>
                       <div className="flex items-center gap-3 ml-auto">
                         <button
                           type="button"
-                          onClick={() => {
-                            setStagedFileName('');
-                            setUploadProgress(0);
-                          }}
+                          onClick={() => { setStagedFile(null); setStagedFileName(''); setUploadProgress(0); setUploadError(null); }}
                           className="px-4 py-2 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#94A3B8] hover:text-white border border-[#283953] text-xs font-semibold transition-all cursor-pointer"
                         >
                           Clear
                         </button>
                         <button
                           type="button"
-                          disabled={isUploading || !stagedFileName}
+                          disabled={isUploading || !stagedFile}
                           onClick={handleExecuteUpload}
                           className="px-6 py-2 rounded-lg bg-[#38BDF8] hover:bg-[#0284C7] text-[#0B1120] font-bold text-xs shadow-md shadow-[#38BDF8]/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-                          <span>{isUploading ? 'Ingesting...' : 'Upload'}</span>
+                          <span>{isUploading ? 'Uploading...' : 'Upload'}</span>
                         </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Inline File Validation Badges */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="bg-[#151F32] border border-[#1E2D44] p-3.5 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#38BDF8]/10 text-[#38BDF8] flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-[18px]">rule</span>
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold text-white">Schema Matching</div>
-                        <div className="text-[11px] text-[#64748B]">Columns A:H verified</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#151F32] border border-[#1E2D44] p-3.5 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#22C55E]/10 text-[#22C55E] flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-[18px]">fact_check</span>
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold text-white">Deduplication</div>
-                        <div className="text-[11px] text-[#64748B]">Picks indexed by UUID</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#151F32] border border-[#1E2D44] p-3.5 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#38BDF8]/10 text-[#38BDF8] flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-[18px]">sync</span>
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold text-white">Auto Aggregation</div>
-                        <div className="text-[11px] text-[#64748B]">Hourly PPH calculated</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Right Panel: Recent Successful Uploads Side Panel */}
+                {/* Recent Uploads */}
                 <div className="lg:col-span-5 bg-[#151F32] border border-[#1E2D44] rounded-xl p-6 flex flex-col justify-between shadow-sm">
                   <div>
                     <div className="flex items-center justify-between pb-3.5 border-b border-[#1E2D44]">
@@ -435,38 +461,32 @@ export const AdminInputView: React.FC = () => {
                     </div>
 
                     <div className="divide-y divide-[#1E2D44] mt-1">
-                      {recentUploads.map((upload) => (
-                        <div key={upload.id} className="py-3 flex items-center justify-between gap-3 group">
-                          <div className="min-w-0">
-                            <p className="text-xs font-mono font-medium text-white truncate group-hover:text-[#38BDF8] transition-colors">
-                              {upload.fileName}
-                            </p>
-                            <p className="text-[11px] text-[#64748B] tabular-nums mt-0.5">
-                              {upload.timestamp} • {upload.size}
-                            </p>
+                      {recentUploads.length === 0 ? (
+                        <p className="text-xs text-[#64748B] py-6 text-center">No uploads yet.</p>
+                      ) : (
+                        recentUploads.map((upload) => (
+                          <div key={upload.id} className="py-3 flex items-center justify-between gap-3 group">
+                            <div className="min-w-0">
+                              <p className="text-xs font-mono font-medium text-white truncate group-hover:text-[#38BDF8] transition-colors">
+                                {upload.fileName}
+                              </p>
+                              <p className="text-[11px] text-[#64748B] tabular-nums mt-0.5">
+                                {upload.timestamp} • {upload.size}
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+                              Success
+                            </span>
                           </div>
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
-                            Success
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-4 p-3 rounded-lg bg-[#1B2940]/40 border border-[#1E2D44]/60 text-center">
-                      <div className="flex items-center justify-center gap-2 text-[#64748B] text-xs">
-                        <span className="material-symbols-outlined text-[16px]">folder_off</span>
-                        <span>Archived batches older than 30 days stored in Cold Tier</span>
-                      </div>
+                        ))
+                      )}
                     </div>
                   </div>
 
                   <div className="pt-4 mt-6 border-t border-[#1E2D44] flex items-center justify-between text-xs text-[#94A3B8]">
                     <span>Showing {recentUploads.length} audit rows</span>
-                    <button
-                      onClick={handleExportAuditLog}
-                      className="text-[#38BDF8] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-                    >
+                    <button onClick={handleExportAuditLog} className="text-[#38BDF8] hover:underline font-semibold flex items-center gap-1 cursor-pointer">
                       <span>Export Audit Log</span>
                       <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                     </button>
@@ -476,60 +496,40 @@ export const AdminInputView: React.FC = () => {
             </div>
           )}
 
-          {/* ============================================================== */}
-          {/* TAB B: BRANCH KPI INPUT                                        */}
-          {/* ============================================================== */}
+          {/* ============ TAB B: KPI INPUT ============ */}
           {activeSubTab === 'kpi' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              {/* Save Feedback Banner */}
-              {showSaveBanner && (
+              {showSaveBanner && lastSavedKpi && (
                 <div className="bg-[#151F32] border border-[#38BDF8]/40 rounded-xl p-4 flex items-start justify-between relative overflow-hidden shadow-lg shadow-black/20">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#38BDF8]"></div>
                   <div className="flex items-start gap-3.5 pl-1">
                     <div className="w-9 h-9 rounded-lg bg-[#38BDF8]/10 text-[#38BDF8] flex items-center justify-center shrink-0 border border-[#38BDF8]/25">
-                      <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        save
-                      </span>
+                      <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>save</span>
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white">
-                          CR value saved successfully for {sharedKpiDate}
-                        </h4>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
-                          Committed
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                        Atomic update committed. Other forms (PREP, ORDER, ATVENDOR, Adjust, Dispatch) and selected KPI Date were preserved in buffer state.
-                      </p>
+                      <h4 className="text-sm font-bold text-white">
+                        {lastSavedKpi} saved successfully for {sharedKpiDate}
+                      </h4>
+                      <p className="text-xs text-[#94A3B8] mt-1">Metric committed to backend and dashboard updated.</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowSaveBanner(false)}
-                    aria-label="Dismiss banner"
-                    className="text-[#64748B] hover:text-white p-1 rounded transition-colors cursor-pointer"
-                  >
+                  <button onClick={() => setShowSaveBanner(false)} className="text-[#64748B] hover:text-white p-1 rounded transition-colors cursor-pointer">
                     <span className="material-symbols-outlined text-[18px]">close</span>
                   </button>
                 </div>
               )}
 
-              {/* Global Header Bar: Fixed Branch & Shared Date Field */}
+              {/* Date Picker */}
               <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
                 <div className="flex items-center gap-3.5">
                   <div className="w-10 h-10 rounded-xl bg-[#1B2940] border border-[#283953] flex items-center justify-center text-[#38BDF8]">
                     <span className="material-symbols-outlined text-2xl">warehouse</span>
                   </div>
                   <div>
-                    <span className="text-[11px] font-bold text-[#64748B] tracking-wider uppercase block">
-                      Operational Target Facility
-                    </span>
+                    <span className="text-[11px] font-bold text-[#64748B] tracking-wider uppercase block">Operational Target Facility</span>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-base font-bold font-mono text-white">Branch: ELMONTAZA_DS-68</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30 font-semibold uppercase">
-                        Fixed Context
-                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30 font-semibold uppercase">Fixed Context</span>
                     </div>
                   </div>
                 </div>
@@ -539,16 +539,14 @@ export const AdminInputView: React.FC = () => {
                     <span className="material-symbols-outlined text-[#38BDF8] text-[18px]">calendar_today</span>
                     <span>Select KPI Date:</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      id="shared-kpi-date-input"
-                      type="date"
-                      required
-                      value={sharedKpiDate}
-                      onChange={(e) => setSharedKpiDate(e.target.value)}
-                      className="bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white text-xs font-mono font-semibold rounded-lg px-3 py-1.5 outline-none transition-all cursor-pointer"
-                    />
-                  </div>
+                  <input
+                    id="shared-kpi-date-input"
+                    type="date"
+                    required
+                    value={sharedKpiDate}
+                    onChange={(e) => setSharedKpiDate(e.target.value)}
+                    className="bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white text-xs font-mono font-semibold rounded-lg px-3 py-1.5 outline-none transition-all cursor-pointer"
+                  />
                   <div className="flex items-center gap-1 text-[11px] text-[#38BDF8] font-medium pr-2">
                     <span className="text-[#F87171]">*</span>
                     <span>Mandatory for saves</span>
@@ -556,21 +554,27 @@ export const AdminInputView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Six Independent KPI Forms in EXACT order */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {/* 1. CR Form */}
-                <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
+              {/* 6 KPI Forms */}
+              {(
+                [
+                  { key: 'CR' as BranchKpiKey, num: '01', label: 'Customer Return Index', desc: 'Customer Return rate ratio recorded for daily shift batches.', unit: '%', step: '0.01' },
+                  { key: 'PREP' as BranchKpiKey, num: '02', label: 'Minutes Average', desc: 'Preparation cycle time elapsed per fulfilled batch tote.', unit: 'm', step: '0.1' },
+                  { key: 'ORDER' as BranchKpiKey, num: '03', label: 'Count Volume', desc: 'Total line order volume fulfilled through warehouse sort lines.', unit: 'qty', step: '1' },
+                  { key: 'ATVENDOR' as BranchKpiKey, num: '04', label: 'Hours Window', desc: 'Dock turnaround elapsed window for direct vendor deliveries.', unit: 'hrs', step: '0.1' },
+                  { key: 'Adjust' as BranchKpiKey, num: '05', label: 'Inventory Skew', desc: 'Physical cycle audit adjustment discrepancies logged per cycle count.', unit: 'units', step: '1' },
+                  { key: 'Dispatch' as BranchKpiKey, num: '06', label: 'Throughput Speed', desc: 'Loading bay velocity index calculated from picker handoff to transport trailer.', unit: 'idx', step: '0.01' },
+                ] as const
+              ).map(({ key, num, label, desc, unit, step }) => (
+                <div key={key} className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">
-                        01 / KPI
+                        {num} / KPI
                       </span>
-                      <span className="text-[11px] text-[#64748B] font-medium">Customer Return Index</span>
+                      <span className="text-[11px] text-[#64748B] font-medium">{label}</span>
                     </div>
-                    <h4 className="text-lg font-bold text-white">CR</h4>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">
-                      Customer Return rate ratio recorded for daily shift batches.
-                    </p>
+                    <h4 className="text-lg font-bold text-white">{key}</h4>
+                    <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">{desc}</p>
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
                         Numeric Input Value
@@ -578,65 +582,21 @@ export const AdminInputView: React.FC = () => {
                       <div className="relative">
                         <input
                           type="number"
-                          step="0.01"
-                          value={formValues.CR}
-                          onChange={(e) => handleKpiValueChange('CR', e.target.value)}
-                          className="w-full bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all"
+                          step={step}
+                          value={formValues[key]}
+                          onChange={(e) => handleKpiValueChange(key, e.target.value)}
+                          placeholder="0"
+                          className="w-full bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-14 transition-all"
                         />
-                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">%</span>
+                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">{unit}</span>
                       </div>
+                      {saveErrors[key] && (
+                        <p className="text-xs text-[#F87171] mt-1">{saveErrors[key]}</p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-5 pt-3.5 border-t border-[#1E2D44] flex items-center justify-between">
-                    {savedStatuses.CR ? (
-                      <span className="text-xs text-[#22C55E] flex items-center gap-1.5 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
-                        Saved 18 Oct
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[#64748B] font-medium">Unsaved buffer</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleSaveKpi('CR')}
-                      className="px-4 py-1.5 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#38BDF8] border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                    >
-                      Save CR
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. PREP Form */}
-                <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">
-                        02 / KPI
-                      </span>
-                      <span className="text-[11px] text-[#64748B] font-medium">Minutes Average</span>
-                    </div>
-                    <h4 className="text-lg font-bold text-white">PREP</h4>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">
-                      Preparation cycle time elapsed per fulfilled batch tote.
-                    </p>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-                        Numeric Input Value
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formValues.PREP}
-                          onChange={(e) => handleKpiValueChange('PREP', e.target.value)}
-                          className="w-full bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all"
-                        />
-                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">m</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-5 pt-3.5 border-t border-[#1E2D44] flex items-center justify-between">
-                    {savedStatuses.PREP ? (
+                    {savedStatuses[key] ? (
                       <span className="text-xs text-[#22C55E] flex items-center gap-1.5 font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
                         Saved {sharedKpiDate}
@@ -646,206 +606,15 @@ export const AdminInputView: React.FC = () => {
                     )}
                     <button
                       type="button"
-                      onClick={() => handleSaveKpi('PREP')}
-                      className="px-4 py-1.5 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#38BDF8] border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                      disabled={savingKey === key || !formValues[key]}
+                      onClick={() => handleSaveKpi(key)}
+                      className="px-4 py-1.5 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#38BDF8] border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-50"
                     >
-                      Save PREP
+                      {savingKey === key ? 'Saving...' : `Save ${key}`}
                     </button>
                   </div>
                 </div>
-
-                {/* 3. ORDER Form */}
-                <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">
-                        03 / KPI
-                      </span>
-                      <span className="text-[11px] text-[#64748B] font-medium">Count Volume</span>
-                    </div>
-                    <h4 className="text-lg font-bold text-white">ORDER</h4>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">
-                      Total line order volume fulfilled through warehouse sort lines.
-                    </p>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-                        Numeric Input Value
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="1"
-                          value={formValues.ORDER}
-                          onChange={(e) => handleKpiValueChange('ORDER', e.target.value)}
-                          className="w-full bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all"
-                        />
-                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">qty</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-5 pt-3.5 border-t border-[#1E2D44] flex items-center justify-between">
-                    {savedStatuses.ORDER ? (
-                      <span className="text-xs text-[#22C55E] flex items-center gap-1.5 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
-                        Saved {sharedKpiDate}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[#64748B] font-medium">Unsaved buffer</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleSaveKpi('ORDER')}
-                      className="px-4 py-1.5 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#38BDF8] border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                    >
-                      Save ORDER
-                    </button>
-                  </div>
-                </div>
-
-                {/* 4. ATVENDOR Form */}
-                <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">
-                        04 / KPI
-                      </span>
-                      <span className="text-[11px] text-[#64748B] font-medium">Hours Window</span>
-                    </div>
-                    <h4 className="text-lg font-bold text-white">ATVENDOR</h4>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">
-                      Dock turnaround elapsed window for direct vendor deliveries.
-                    </p>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-                        Numeric Input Value
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formValues.ATVENDOR}
-                          onChange={(e) => handleKpiValueChange('ATVENDOR', e.target.value)}
-                          className="w-full bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all"
-                        />
-                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">hrs</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-5 pt-3.5 border-t border-[#1E2D44] flex items-center justify-between">
-                    {savedStatuses.ATVENDOR ? (
-                      <span className="text-xs text-[#22C55E] flex items-center gap-1.5 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
-                        Saved {sharedKpiDate}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[#64748B] font-medium">Unsaved buffer</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleSaveKpi('ATVENDOR')}
-                      className="px-4 py-1.5 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#38BDF8] border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                    >
-                      Save ATVENDOR
-                    </button>
-                  </div>
-                </div>
-
-                {/* 5. Adjust Form */}
-                <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">
-                        05 / KPI
-                      </span>
-                      <span className="text-[11px] text-[#64748B] font-medium">Inventory Skew</span>
-                    </div>
-                    <h4 className="text-lg font-bold text-white">Adjust</h4>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">
-                      Physical cycle audit adjustment discrepancies logged per cycle count.
-                    </p>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-                        Numeric Input Value
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="1"
-                          value={formValues.Adjust}
-                          onChange={(e) => handleKpiValueChange('Adjust', e.target.value)}
-                          className="w-full bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-12 transition-all"
-                        />
-                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">units</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-5 pt-3.5 border-t border-[#1E2D44] flex items-center justify-between">
-                    {savedStatuses.Adjust ? (
-                      <span className="text-xs text-[#22C55E] flex items-center gap-1.5 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
-                        Saved {sharedKpiDate}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[#64748B] font-medium">Unsaved buffer</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleSaveKpi('Adjust')}
-                      className="px-4 py-1.5 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#38BDF8] border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                    >
-                      Save Adjust
-                    </button>
-                  </div>
-                </div>
-
-                {/* 6. Dispatch Form */}
-                <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col justify-between hover:border-[#283953] transition-all shadow-sm">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-mono font-bold text-[#38BDF8] bg-[#1B2940] px-2.5 py-0.5 rounded border border-[#283953]">
-                        06 / KPI
-                      </span>
-                      <span className="text-[11px] text-[#64748B] font-medium">Throughput Speed</span>
-                    </div>
-                    <h4 className="text-lg font-bold text-white">Dispatch</h4>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 mb-4 leading-normal">
-                      Loading bay velocity index calculated from picker handoff to transport trailer.
-                    </p>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-                        Numeric Input Value
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formValues.Dispatch}
-                          onChange={(e) => handleKpiValueChange('Dispatch', e.target.value)}
-                          className="w-full bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white rounded-lg px-3 py-2 text-base font-bold font-mono tabular-nums outline-none pr-9 transition-all"
-                        />
-                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-[#64748B] font-mono">idx</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-5 pt-3.5 border-t border-[#1E2D44] flex items-center justify-between">
-                    {savedStatuses.Dispatch ? (
-                      <span className="text-xs text-[#22C55E] flex items-center gap-1.5 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
-                        Saved {sharedKpiDate}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[#64748B] font-medium">Unsaved buffer</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleSaveKpi('Dispatch')}
-                      className="px-4 py-1.5 rounded-lg bg-[#1B2940] hover:bg-[#243552] text-[#38BDF8] border border-[#283953] hover:border-[#38BDF8]/50 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                    >
-                      Save Dispatch
-                    </button>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           )}
         </div>
