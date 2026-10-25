@@ -479,6 +479,57 @@ export const PickersView: React.FC = () => {
           </div>
         </section>
 
+        {/* System Diagnostic States (Live Sandbox) */}
+        <section className="border-t border-[#1E293B] pt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#38BDF8] text-[20px]">monitor_heart</span>
+              <span className="text-sm font-bold text-[#F8FAFC]">System Diagnostic States (Live Sandbox)</span>
+            </div>
+            <span className="text-xs text-[#64748B] font-mono">Contract Spec v2.4</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* State A: Skeleton Loading */}
+            <div className="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-[#1E293B] pb-2 text-xs">
+                <span className="text-[#64748B] uppercase font-semibold">State: Loading Skeleton</span>
+                <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-ping"></span>
+              </div>
+              <div className="animate-pulse space-y-3 pt-1">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1.5">
+                    <div className="h-3 bg-[#1E293B] rounded w-16"></div>
+                    <div className="h-4 bg-[#1E293B] rounded w-28"></div>
+                  </div>
+                  <div className="h-5 bg-[#1E293B] rounded w-16"></div>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <div className="w-12 h-12 rounded-full bg-[#1E293B]"></div>
+                  <div className="h-8 bg-[#1E293B] rounded w-14"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* State B: Empty State */}
+            <div className="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2 min-h-[140px]">
+              <span className="material-symbols-outlined text-[#64748B] text-[24px]">inbox</span>
+              <div className="text-xs font-bold text-[#F8FAFC]">No picker data available</div>
+              <p className="text-[11px] text-[#94A3B8] max-w-xs">
+                No active pickers assigned to Shift B at this terminal.
+              </p>
+            </div>
+
+            {/* State C: No Search Results */}
+            <div className="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 flex flex-col items-center justify-center text-center space-y-2 min-h-[140px]">
+              <span className="material-symbols-outlined text-[#FB923C] text-[24px]">search_off</span>
+              <div className="text-xs font-bold text-[#F8FAFC]">No pickers found</div>
+              <p className="text-[11px] text-[#94A3B8] max-w-xs">
+                No badge matches the current filter or query criteria.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* ========================================================================= */}

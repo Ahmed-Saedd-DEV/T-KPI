@@ -175,35 +175,12 @@ export const AdminInputView: React.FC = () => {
         <div className="flex items-center gap-3">
           <span className="text-[#64748B] text-sm font-medium">Warehouse Ops</span>
           <span className="text-[#283953] text-sm">/</span>
-          <h1 className="text-base font-bold text-white tracking-wide flex items-center gap-2">
-            <span>Admin / Input</span>
-            <span className="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/20">
-              Active Node: ELMONTAZA_DS-68
-            </span>
+          <h1 className="text-base font-bold text-white tracking-wide">
+            Admin / Input
           </h1>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-[#151F32] border border-[#1E2D44] text-xs">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#38BDF8] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#38BDF8]"></span>
-            </span>
-            <span className="text-[#94A3B8] font-medium">
-              Hub Live: <span className="text-[#F1F5F9] font-semibold">{recentUploads.length} Batches Uploaded</span>
-            </span>
-          </div>
-
-          <div className="h-5 w-px bg-[#1E2D44]"></div>
-
-          <button
-            aria-label="Notifications"
-            className="relative p-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#151F32] border border-transparent hover:border-[#1E2D44] transition-all"
-          >
-            <span className="material-symbols-outlined text-[20px]">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#38BDF8] rounded-full ring-2 ring-[#0B1120]"></span>
-          </button>
-
           <div className="flex items-center gap-2.5 pl-2">
             <div className="w-8 h-8 rounded-full bg-[#1B2940] border border-[#283953] flex items-center justify-center font-bold text-xs text-[#38BDF8]">
               {currentUser ? currentUser.displayName.slice(0, 2).toUpperCase() : 'AD'}
@@ -235,11 +212,7 @@ export const AdminInputView: React.FC = () => {
                 Floor scanner ledger ingestion, roster performance metrics batch parser, and branch operational KPI manual overrides.
               </p>
             </div>
-            <div className="flex items-center gap-2 self-start md:self-auto text-xs bg-[#151F32] px-3 py-1.5 rounded-lg border border-[#1E2D44] text-[#64748B]">
-              <span className="material-symbols-outlined text-[16px] text-[#22C55E]">verified_user</span>
-              <span>Role Authorized: Lead Station Controller</span>
             </div>
-          </div>
 
           {/* Tab Bar */}
           <div className="flex items-center justify-between border-b border-[#1E2D44]">
@@ -275,10 +248,6 @@ export const AdminInputView: React.FC = () => {
               </button>
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 text-xs text-[#64748B] pb-2">
-              <span className="w-2 h-2 rounded-full bg-[#22C55E]"></span>
-              <span>Pipe Status: Ingestion Ready (Port 442)</span>
-            </div>
           </div>
 
           {/* ============ TAB A: IMPORT ============ */}
@@ -340,9 +309,6 @@ export const AdminInputView: React.FC = () => {
                           <p className="text-xs text-[#94A3B8]">Import scanner shifts & terminal dumps</p>
                         </div>
                       </div>
-                      <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#1B2940] text-[#38BDF8] border border-[#283953] font-mono">
-                        Target: ELMONTAZA_DS-68
-                      </span>
                     </div>
 
                     {/* Drop Zone */}
@@ -521,20 +487,7 @@ export const AdminInputView: React.FC = () => {
 
               {/* Date Picker */}
               <div className="bg-[#151F32] border border-[#1E2D44] rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#1B2940] border border-[#283953] flex items-center justify-center text-[#38BDF8]">
-                    <span className="material-symbols-outlined text-2xl">warehouse</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-[#64748B] tracking-wider uppercase block">Operational Target Facility</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-base font-bold font-mono text-white">Branch: ELMONTAZA_DS-68</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30 font-semibold uppercase">Fixed Context</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 bg-[#1B2940] p-2.5 rounded-xl border border-[#283953]">
+                <div className="flex items-center gap-3 bg-[#1B2940] p-2.5 rounded-xl border border-[#283953] md:ml-auto">
                   <label htmlFor="shared-kpi-date-input" className="text-xs font-semibold text-[#94A3B8] flex items-center gap-2 pl-2">
                     <span className="material-symbols-outlined text-[#38BDF8] text-[18px]">calendar_today</span>
                     <span>Select KPI Date:</span>
