@@ -7,7 +7,6 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 export const BranchKpisView: React.FC = () => {
   const { branchKpis, activeKpiKey, setActiveKpiKey } = useApp();
   const [showErrorBanner, setShowErrorBanner] = useState(false);
-  const [showSkeletons, setShowSkeletons] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [chartTooltip, setChartTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   const chartAreaRef = useRef<HTMLDivElement | null>(null);
@@ -352,58 +351,6 @@ export const BranchKpisView: React.FC = () => {
           </div>
         </section>
 
-        {/* Loading State Skeletons & Diagnostics Preview */}
-        <section className="border-t border-[#1E293B] pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#64748B]">hourglass_empty</span>
-              <h3 className="text-sm font-semibold text-[#94A3B8] uppercase tracking-wider font-mono">
-                Loading State Skeletons & Diagnostics
-              </h3>
-            </div>
-            <button
-              onClick={() => setShowSkeletons((prev) => !prev)}
-              className="text-xs font-mono text-[#38BDF8] hover:underline cursor-pointer"
-            >
-              {showSkeletons ? 'Hide Skeleton Previews' : 'Show Skeleton Previews'}
-            </button>
-          </div>
-
-          {showSkeletons && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              {/* 6 Skeleton Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div
-                    key={i}
-                    className="p-4 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-28 flex flex-col justify-between animate-pulse"
-                  >
-                    <div className="h-3 w-12 bg-[#1E293B] rounded"></div>
-                    <div className="h-8 w-20 bg-[#1E293B] rounded"></div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Skeleton Chart Panel */}
-              <div className="p-6 rounded-lg bg-[#151F32]/50 border border-[#1E293B] h-48 flex flex-col justify-between animate-pulse">
-                <div className="flex items-center justify-between">
-                  <div className="h-4 w-44 bg-[#1E293B] rounded"></div>
-                  <div className="h-4 w-32 bg-[#1E293B] rounded"></div>
-                </div>
-                <div className="h-24 w-full bg-[#1E293B]/40 rounded-lg flex items-end p-3 gap-3">
-                  <div className="h-10 flex-1 bg-[#1E293B] rounded"></div>
-                  <div className="h-16 flex-1 bg-[#1E293B] rounded"></div>
-                  <div className="h-8 flex-1 bg-[#1E293B] rounded"></div>
-                  <div className="h-20 flex-1 bg-[#1E293B] rounded"></div>
-                  <div className="h-14 flex-1 bg-[#1E293B] rounded"></div>
-                  <div className="h-12 flex-1 bg-[#1E293B] rounded"></div>
-                  <div className="h-18 flex-1 bg-[#1E293B] rounded"></div>
-                </div>
-                <div className="h-3 w-1/4 bg-[#1E293B] rounded"></div>
-              </div>
-            </div>
-          )}
-        </section>
       </main>
     </div>
   );
