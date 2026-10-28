@@ -8,20 +8,13 @@ const employeePerformanceValidator = require("../../validators/employees/employe
 
 const router = express.Router();
 
-router.get("/", auth, employeeListValidator, employeeController.getEmployees);
-router.get("/top", auth, employeeController.getTopEmployees);
+// Public routes — no auth required
+router.get("/", employeeListValidator, employeeController.getEmployees);
+router.get("/top", employeeController.getTopEmployees);
+
+// Protected routes — auth required
 router.get("/code/:employeeCode", auth, employeeController.getEmployeeByCode);
-router.get(
-  "/:id/performance",
-  auth,
-  employeePerformanceValidator,
-  employeePerformanceController.getEmployeePerformance,
-);
-router.get(
-  "/:id",
-  auth,
-  employeeIdValidator,
-  employeeController.getEmployeeById,
-);
+router.get("/:id/performance", auth, employeePerformanceValidator, employeePerformanceController.getEmployeePerformance);
+router.get("/:id", auth, employeeIdValidator, employeeController.getEmployeeById);
 
 module.exports = router;
