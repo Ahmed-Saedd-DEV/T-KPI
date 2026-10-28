@@ -58,13 +58,12 @@ services:
     build:
       context: ./public
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3000
     container_name: talabat-frontend
     restart: unless-stopped
     ports:
       - "127.0.0.1:5173:5173"
-    environment:
-      VITE_HOST: 0.0.0.0
-      VITE_PORT: 5173
     depends_on:
       - app
 
