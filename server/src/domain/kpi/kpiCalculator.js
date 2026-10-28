@@ -1,11 +1,11 @@
 "use strict";
 
 const SAFE_ZONE_TARGETS = {
-  opsCR: 0.02,
-  dispatchTime: 4.0,
-  pickingTime: 1.4,
-  assignmentTime: 0.10,
-  prepTime: 1.5,
+  opsCR: 1,
+  dispatchTime: 7,
+  pickingTime: 1.7,
+  assignmentTime: 0.3,
+  prepTime: 2,
 };
 
 function calculateMetricScore(safeZone, actualValue) {
