@@ -11,47 +11,14 @@ const metricRangeValidator = require("../../../validators/admin/metrics/metricRa
 
 const router = express.Router();
 
-router.post(
-  "/",
-  auth,
-  authorize("ADMIN"),
-  metricCreateValidator,
-  branchMetricController.createDailyMetric,
-);
+// Public — anyone can read metrics
+router.get("/", metricRangeValidator, branchMetricController.getDailyMetrics);
+router.get("/best", branchMetricController.getBestDay);
 
-router.get(
-  "/",
-  auth,
-  authorize("ADMIN"),
-  metricRangeValidator,
-  branchMetricController.getDailyMetrics,
-);
-
-router.get("/best", auth, branchMetricController.getBestDay);
-
-router.get(
-  "/:date",
-  auth,
-  authorize("ADMIN"),
-  metricDateValidator,
-  branchMetricController.getDailyMetricByDate,
-);
-
-router.patch(
-  "/:date",
-  auth,
-  authorize("ADMIN"),
-  metricDateValidator,
-  metricUpdateValidator,
-  branchMetricController.updateDailyMetric,
-);
-
-router.delete(
-  "/:date",
-  auth,
-  authorize("ADMIN"),
-  metricDateValidator,
-  branchMetricController.deleteDailyMetric,
-);
+// Protected — ADMIN only
+router.post("/", auth, authorize("ADMIN"), metricCreateValidator, branchMetricController.createDailyMetric);
+router.get("/:date", auth, authorize("ADMIN"), metricDateValidator, branchMetricController.getDailyMetricByDate);
+router.patch("/:date", auth, authorize("ADMIN"), metricDateValidator, metricUpdateValidator, branchMetricController.updateDailyMetric);
+router.delete("/:date", auth, authorize("ADMIN"), metricDateValidator, branchMetricController.deleteDailyMetric);
 
 module.exports = router;

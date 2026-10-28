@@ -524,33 +524,31 @@ export const BranchKpisView: React.FC = () => {
               {/* X-Axis Labels — dynamic from historyData */}
               <div className="flex justify-between text-[11px] font-mono text-[#64748B] pt-3 select-none border-t border-[#1E293B] px-4">
                 {(currentCfg.historyData && currentCfg.historyData.length > 0
-                  ? currentCfg.historyData.slice(-7).map((d, idx, arr) => ({
-                      label: new Date(d.date).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                      }),
-                      isLast: idx === arr.length - 1,
-                    }))
+                  ? currentCfg.historyData.slice(-7)
                   : [
-                      "12 Oct",
-                      "13 Oct",
-                      "14 Oct",
-                      "15 Oct",
-                      "16 Oct",
-                      "17 Oct",
-                      "18 Oct",
-                    ].map((d, idx, arr) => ({
-                      label: d,
-                      isLast: idx === arr.length - 1,
-                    }))
-                ).map(({ label, isLast }) => (
-                  <span
-                    key={`${label}-${isLast ? "last" : "mid"}`}
-                    className={`text-center w-12 cursor-pointer hover:text-[#F8FAFC] ${isLast ? "font-bold text-[#38BDF8]" : ""}`}
-                  >
-                    {label}
-                  </span>
-                ))}
+                      { date: "2024-10-12" },
+                      { date: "2024-10-13" },
+                      { date: "2024-10-14" },
+                      { date: "2024-10-15" },
+                      { date: "2024-10-16" },
+                      { date: "2024-10-17" },
+                      { date: "2024-10-18" },
+                    ]
+                ).map((d, idx, arr) => {
+                  const label = new Date(d.date).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                  });
+                  const isLast = idx === arr.length - 1;
+                  return (
+                    <span
+                      key={d.date}
+                      className={`text-center w-12 cursor-pointer hover:text-[#F8FAFC] ${isLast ? "font-bold text-[#38BDF8]" : ""}`}
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>

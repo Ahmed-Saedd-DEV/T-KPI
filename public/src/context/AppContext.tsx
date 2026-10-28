@@ -266,17 +266,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   // ── Fetch branch metrics from backend ──
   const fetchMetrics = async () => {
     try {
-      const { data } = await apiClient.get("/admin/metrics/daily");
-      const records: Array<{
-        metricDate: string;
-        opsCR?: number;
-        prepTime?: number;
-        orderCount?: number;
-        atVendorTime?: number;
-        adjustTime?: number;
-        dispatchTime?: number;
-      }> = Array.isArray(data) ? data : (data?.data ?? []);
+      const { data } = await apiClient.get<{
+        data: Array<{
+          metricDate: string;
+          opsCR?: number;
+          prepTime?: number;
+          orderCount?: number;
+          atVendorTime?: number;
+          adjustTime?: number;
+          dispatchTime?: number;
+        }>;
+      }>("/admin/metrics/daily");
 
+      const records = data.data ?? [];
       if (records.length === 0) return;
 
       records.sort(
@@ -481,7 +483,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     showToast(`${key} saved`, `Updated ${key} to ${value} for ${date}.`);
-    fetchMetrics();
+
+    setTimeout(() => fetchMetrics(), 500);
   };
 
   // ── Uploads ──
