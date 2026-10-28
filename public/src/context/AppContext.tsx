@@ -243,10 +243,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ── Fetch pickers once authenticated ──
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchPickers();
-    }
-  }, [isAuthenticated]);
+  fetchPickers();
+}, []);
 
   // ── Toast ──
   const showToast = (title: string, description: string, type: 'success' | 'error' | 'info' = 'success') => {

@@ -10,7 +10,6 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor — يضيف JWT تلقائياً في كل request
 apiClient.interceptors.request.use((config) => {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
@@ -21,18 +20,21 @@ apiClient.interceptors.request.use((config) => {
       }
     }
   } catch {
-    // ignore
+    // no token — send request without auth
   }
   return config;
 });
 
-// Response interceptor — يتعامل مع 401 تلقائياً
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem(SESSION_KEY);
-      window.dispatchEvent(new Event('session-expired'));
+      // only clear session if user was logged in
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) {
+        localStorage.removeItem(SESSION_KEY);
+        window.dispatchEvent(new Event('session-expired'));
+      }
     }
     return Promise.reject(error);
   },
