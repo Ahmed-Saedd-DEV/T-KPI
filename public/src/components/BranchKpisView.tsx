@@ -62,13 +62,6 @@ export const BranchKpisView: React.FC = () => {
             <span>Last Updated: 18 Oct 2024, 23:45 UTC</span>
           </div>
 
-          <button
-            aria-label="Notifications"
-            className="relative text-[#94A3B8] hover:text-[#F8FAFC] p-1.5 rounded-lg bg-[#151F32] border border-[#1E293B] transition-colors"
-          >
-            <span className="material-symbols-outlined text-xl">notifications</span>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-[#38BDF8] rounded-full"></span>
-          </button>
         </div>
       </header>
 

@@ -10,10 +10,11 @@ export const DashboardView: React.FC = () => {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      const h = String(now.getUTCHours()).padStart(2, '0');
-      const m = String(now.getUTCMinutes()).padStart(2, '0');
-      const s = String(now.getUTCSeconds()).padStart(2, '0');
-      setUtcTime(`${h}:${m}:${s} UTC`);
+      const timeInEgypt = now.toLocaleTimeString('en-US', {
+        timeZone: 'Africa/Cairo',
+        hour12: true,
+      });
+      setUtcTime(`${timeInEgypt} EGY`);
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
@@ -49,10 +50,10 @@ export const DashboardView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-          {/* Live UTC Clock */}
+          {/* Live Egypt Time Clock */}
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#151F32] border border-[#1E293B] text-[#94A3B8]">
             <span className="material-symbols-outlined text-[16px] text-[#64748B]">schedule</span>
-            <span className="text-xs font-mono tabular-nums text-[#F1F5F9]">{utcTime || '14:32:08 UTC'}</span>
+            <span className="text-xs font-mono tabular-nums text-[#F1F5F9]">{utcTime || '14:32:08 EGY'}</span>
           </div>
 
           {/* Operational Shift Badge */}
@@ -61,15 +62,6 @@ export const DashboardView: React.FC = () => {
             <span className="text-xs font-medium text-[#CBD5E1]">Shift 01</span>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#1E293B] text-[#94A3B8]">Active</span>
           </div>
-
-          {/* Notification Button */}
-          <button
-            aria-label="Notifications"
-            className="p-2 rounded-lg text-[#94A3B8] hover:text-[#F1F5F9] hover:bg-[#151F32] transition-colors relative"
-          >
-            <span className="material-symbols-outlined text-[20px]">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#38BDF8] ring-2 ring-[#0F172A]"></span>
-          </button>
 
           {/* Profile Badge */}
           <div className="flex items-center gap-2.5 pl-2 border-l border-[#1E293B]">
@@ -80,7 +72,6 @@ export const DashboardView: React.FC = () => {
               <span className="text-xs font-semibold text-[#F1F5F9] leading-tight">
                 {currentUser ? currentUser.displayName : 'Ops Supervisor'}
               </span>
-              <span className="text-[10px] text-[#64748B]">{currentUser ? `ID: ${currentUser.id}` : 'ID: SUP-902'}</span>
             </div>
             <button
               type="button"
