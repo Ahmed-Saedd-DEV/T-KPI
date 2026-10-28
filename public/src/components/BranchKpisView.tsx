@@ -59,7 +59,16 @@ export const BranchKpisView: React.FC = () => {
         <div className="flex items-center gap-4 shrink-0">
           <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-[#94A3B8] bg-[#151F32] px-3 py-1.5 rounded-md border border-[#1E293B]">
             <span className="material-symbols-outlined text-sm text-[#38BDF8]">schedule</span>
-            <span>Last Updated: 18 Oct 2024, 23:45 UTC</span>
+            <span>
+              Last Updated:{' '}
+              {currentCfg.historyData && currentCfg.historyData.length > 0
+                ? new Date(currentCfg.historyData[currentCfg.historyData.length - 1].date).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : '—'}
+            </span>
           </div>
 
         </div>
@@ -317,14 +326,28 @@ export const BranchKpisView: React.FC = () => {
                 )}
               </div>
 
-              {/* X-Axis Labels: Oct 12 to Oct 18 */}
+              {/* X-Axis Labels — dynamic from historyData */}
               <div className="flex justify-between text-[11px] font-mono text-[#64748B] pt-3 select-none border-t border-[#1E293B] px-4">
-                {['12 Oct', '13 Oct', '14 Oct', '15 Oct', '16 Oct', '17 Oct'].map((d) => (
-                  <span key={d} className="text-center w-12 cursor-pointer hover:text-[#F8FAFC]">
-                    {d}
+                {(currentCfg.historyData && currentCfg.historyData.length > 0
+                  ? currentCfg.historyData.slice(-7).map((d, idx, arr) => ({
+                      label: new Date(d.date).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                      }),
+                      isLast: idx === arr.length - 1,
+                    }))
+                  : ['12 Oct', '13 Oct', '14 Oct', '15 Oct', '16 Oct', '17 Oct', '18 Oct'].map((d, idx, arr) => ({
+                      label: d,
+                      isLast: idx === arr.length - 1,
+                    }))
+                ).map(({ label, isLast }) => (
+                  <span
+                    key={`${label}-${isLast ? 'last' : 'mid'}`}
+                    className={`text-center w-12 cursor-pointer hover:text-[#F8FAFC] ${isLast ? 'font-bold text-[#38BDF8]' : ''}`}
+                  >
+                    {label}
                   </span>
                 ))}
-                <span className="text-center w-12 font-bold text-[#38BDF8]">18 Oct</span>
               </div>
             </div>
           </div>

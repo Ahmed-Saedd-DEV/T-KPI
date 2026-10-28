@@ -37,6 +37,7 @@ interface AppContextType {
   pickersLoading: boolean;
   pickersError: string | null;
   fetchPickers: () => Promise<void>;
+  fetchMetrics: () => Promise<void>;
   addPicker: (id: string, name: string) => { success: boolean; error?: string };
   removePicker: (id: string) => boolean;
   selectedTelemetryPicker: Picker | null;
@@ -243,8 +244,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ── Fetch pickers once authenticated ──
   useEffect(() => {
-  fetchPickers();
-}, []);
+    fetchPickers();
+  }, []);
+
+  // ── Fetch branch metrics from backend ──
+  const fetchMetrics = async () => {
+    try {
+      const { data } = await apiClient.get('/admin/metrics/daily');
+      const records: Array<{
+        metricDate: string;
+        opsCR?: number;
+        prepTime?: number;
+        orderCount?: number;
+        atVendorTime?: number;
+        adjustTime?: number;
+        dispatchTime?: number;
+      }> = Array.isArray(data) ? data : data?.data ?? [];
+
+      if (records.length === 0) return;
+
+      records.sort((a, b) => new Date(a.metricDate).getTime() - new Date(b.metricDate).getTime());
+
+      const latest = records[records.length - 1];
+      const dateStr = latest.metricDate.slice(0, 10);
+
+      const KPI_MAP: Record<BranchKpiKey, keyof typeof latest> = {
+        CR: 'opsCR',
+        PREP: 'prepTime',
+        ORDER: 'orderCount',
+        ATVENDOR: 'atVendorTime',
+        Adjust: 'adjustTime',
+        Dispatch: 'dispatchTime',
+      };
+
+      setBranchKpis((prev) => {
+        const updated = { ...prev };
+
+        (Object.keys(KPI_MAP) as BranchKpiKey[]).forEach((key) => {
+          const backendKey = KPI_MAP[key];
+          const value = latest[backendKey];
+
+          if (value !== undefined && value !== null) {
+            const displayValue = String(value);
+            const historyData = records
+              .map((r) => ({
+                date: r.metricDate,
+                value: Number(r[backendKey] ?? 0),
+              }))
+              .filter((entry) => entry.date);
+
+            updated[key] = {
+              ...prev[key],
+              currentValue: displayValue,
+              latestTooltip: `${dateStr.slice(8, 10)}/${dateStr.slice(5, 7)} — ${key}: ${displayValue}`,
+              historyData,
+            };
+          }
+        });
+
+        return updated;
+      });
+    } catch {
+      // silently fail — keep existing data
+    }
+  };
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
 
   // ── Toast ──
   const showToast = (title: string, description: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -378,6 +445,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     showToast(`${key} saved`, `Updated ${key} to ${value} for ${date}.`);
+    fetchMetrics();
   };
 
   // ── Uploads ──
@@ -410,6 +478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pickersLoading,
         pickersError,
         fetchPickers,
+        fetchMetrics,
         addPicker,
         removePicker,
         selectedTelemetryPicker,

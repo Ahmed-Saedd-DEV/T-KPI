@@ -62,6 +62,7 @@ export interface BranchKpiConfig {
   badge: string;
   icon: string;
   latestTooltip: string;
+  historyData?: Array<{ date: string; value: number }>;
   yAxis: string[];
   points?: string;
   fillPoints?: string;
