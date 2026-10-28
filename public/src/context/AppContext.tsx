@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   NavTab,
   Picker,
@@ -6,15 +6,15 @@ import {
   BranchKpiConfig,
   RecentUpload,
   PerformanceTier,
-} from '../types';
-import { INITIAL_BRANCH_KPIS, INITIAL_UPLOADS } from '../data/initialData';
-import apiClient from '../api/client';
+} from "../types";
+import { INITIAL_BRANCH_KPIS, INITIAL_UPLOADS } from "../data/initialData";
+import apiClient from "../api/client";
 
 interface ToastMessage {
   id: string;
   title: string;
   description: string;
-  type?: 'success' | 'error' | 'info';
+  type?: "success" | "error" | "info";
 }
 
 interface AuthUser {
@@ -51,9 +51,17 @@ interface AppContextType {
   setActiveKpiKey: (key: BranchKpiKey) => void;
   updateBranchKpi: (key: BranchKpiKey, value: string, date: string) => void;
   recentUploads: RecentUpload[];
-  addUploadRecord: (fileName: string, size: string, shiftsCount: number) => void;
+  addUploadRecord: (
+    fileName: string,
+    size: string,
+    shiftsCount: number,
+  ) => void;
   toast: ToastMessage | null;
-  showToast: (title: string, description: string, type?: 'success' | 'error' | 'info') => void;
+  showToast: (
+    title: string,
+    description: string,
+    type?: "success" | "error" | "info",
+  ) => void;
   dismissToast: () => void;
   isAuthenticated: boolean;
   currentUser: AuthUser | null;
@@ -66,39 +74,39 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-const AUTH_SESSION_KEY = 'picker-performance-dashboard-session';
+const AUTH_SESSION_KEY = "picker-performance-dashboard-session";
 
 // ─── Tier helpers ────────────────────────────────────────────────────────────
 function getTier(score: number | null): PerformanceTier {
-  if (score === null) return 'low';
-  if (score >= 90) return 'excellent';
-  if (score >= 80) return 'very_good';
-  if (score >= 70) return 'good';
-  if (score >= 60) return 'average';
-  if (score >= 50) return 'below_average';
-  return 'low';
+  if (score === null) return "low";
+  if (score >= 90) return "excellent";
+  if (score >= 80) return "very_good";
+  if (score >= 70) return "good";
+  if (score >= 60) return "average";
+  if (score >= 50) return "below_average";
+  return "low";
 }
 
 function getTierLabel(tier: PerformanceTier): string {
   const labels: Record<PerformanceTier, string> = {
-    excellent: 'Excellent',
-    very_good: 'Very Good',
-    good: 'Good',
-    average: 'Average',
-    below_average: 'Below Avg',
-    low: 'Low',
+    excellent: "Excellent",
+    very_good: "Very Good",
+    good: "Good",
+    average: "Average",
+    below_average: "Below Avg",
+    low: "Low",
   };
   return labels[tier];
 }
 
 function getTierColor(tier: PerformanceTier): string {
   const colors: Record<PerformanceTier, string> = {
-    excellent: '#22C55E',
-    very_good: '#52e87c',
-    good: '#FDE047',
-    average: '#FBBF24',
-    below_average: '#FB923C',
-    low: '#F87171',
+    excellent: "#22C55E",
+    very_good: "#52e87c",
+    good: "#FDE047",
+    average: "#FBBF24",
+    below_average: "#FB923C",
+    low: "#F87171",
   };
   return colors[tier];
 }
@@ -128,9 +136,9 @@ function mapEmployeeToPicker(emp: BackendEmployee): Picker {
   const metrics = emp.metrics;
 
   const fmtSec = (v: number | undefined) =>
-    v !== undefined ? `${v.toFixed(2)}s` : '—';
+    v !== undefined ? `${v.toFixed(2)}s` : "—";
   const fmtMin = (v: number | undefined) =>
-    v !== undefined ? `${Math.floor(v / 60)}m ${Math.round(v % 60)}s` : '—';
+    v !== undefined ? `${Math.floor(v / 60)}m ${Math.round(v % 60)}s` : "—";
 
   return {
     id: emp.employeeCode,
@@ -140,23 +148,23 @@ function mapEmployeeToPicker(emp: BackendEmployee): Picker {
     tierLabel: getTierLabel(tier),
     tierColor: getTierColor(tier),
     orders: emp.orders ?? 0,
-    zone: 'Warehouse Floor',
-    subBadge: score !== null ? `Score: ${score.toFixed(1)}` : 'No data',
+    zone: "Warehouse Floor",
+    subBadge: score !== null ? `Score: ${score.toFixed(1)}` : "No data",
     telemetry: {
       orders: emp.orders ?? 0,
-      pickingTime: metrics ? fmtMin(metrics.pickingTime) : '—',
-      assignmentTime: metrics ? fmtSec(metrics.assignmentTime) : '—',
-      prepTime: metrics ? fmtSec(metrics.prepTime) : '—',
-      dispatchTime: metrics ? fmtSec(metrics.dispatchTime) : '—',
-      opsCr: metrics ? `${metrics.opsCR.toFixed(2)}%` : '—',
-      detailedZone: 'Warehouse Floor',
+      pickingTime: metrics ? fmtMin(metrics.pickingTime) : "—",
+      assignmentTime: metrics ? fmtSec(metrics.assignmentTime) : "—",
+      prepTime: metrics ? fmtSec(metrics.prepTime) : "—",
+      dispatchTime: metrics ? fmtSec(metrics.dispatchTime) : "—",
+      opsCr: metrics ? `${metrics.opsCR.toFixed(2)}%` : "—",
+      detailedZone: "Warehouse Floor",
     },
   };
 }
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 const readStoredSession = (): AuthSession | null => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(AUTH_SESSION_KEY);
     if (!raw) return null;
@@ -169,23 +177,28 @@ const readStoredSession = (): AuthSession | null => {
 };
 
 const clearStoredSession = () => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     window.localStorage.removeItem(AUTH_SESSION_KEY);
   }
 };
 
 // ─── Provider ────────────────────────────────────────────────────────────────
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [pickers, setPickers] = useState<Picker[]>([]);
   const [pickersLoading, setPickersLoading] = useState(false);
   const [pickersError, setPickersError] = useState<string | null>(null);
-  const [selectedTelemetryPicker, setSelectedTelemetryPicker] = useState<Picker | null>(null);
+  const [selectedTelemetryPicker, setSelectedTelemetryPicker] =
+    useState<Picker | null>(null);
   const [isAddPickerOpen, setIsAddPickerOpen] = useState(false);
   const [isRemovePickerOpen, setIsRemovePickerOpen] = useState(false);
-  const [branchKpis, setBranchKpis] = useState<Record<BranchKpiKey, BranchKpiConfig>>(INITIAL_BRANCH_KPIS);
-  const [activeKpiKey, setActiveKpiKey] = useState<BranchKpiKey>('CR');
-  const [recentUploads, setRecentUploads] = useState<RecentUpload[]>(INITIAL_UPLOADS);
+  const [branchKpis, setBranchKpis] =
+    useState<Record<BranchKpiKey, BranchKpiConfig>>(INITIAL_BRANCH_KPIS);
+  const [activeKpiKey, setActiveKpiKey] = useState<BranchKpiKey>("CR");
+  const [recentUploads, setRecentUploads] =
+    useState<RecentUpload[]>(INITIAL_UPLOADS);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -198,12 +211,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPickersLoading(true);
     setPickersError(null);
     try {
-      const { data } = await apiClient.get<{ data: BackendEmployee[] }>('/employees', {
-        params: { limit: 100 },
-      });
+      const { data } = await apiClient.get<{ data: BackendEmployee[] }>(
+        "/employees",
+        {
+          params: { limit: 100 },
+        },
+      );
       setPickers((data.data ?? []).map(mapEmployeeToPicker));
     } catch {
-      setPickersError('Failed to load pickers. Retrying will restore data.');
+      setPickersError("Failed to load pickers. Retrying will restore data.");
     } finally {
       setPickersLoading(false);
     }
@@ -238,8 +254,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(null);
       setSessionExpired(true);
     };
-    window.addEventListener('session-expired', handleExpired);
-    return () => window.removeEventListener('session-expired', handleExpired);
+    window.addEventListener("session-expired", handleExpired);
+    return () => window.removeEventListener("session-expired", handleExpired);
   }, []);
 
   // ── Fetch pickers once authenticated ──
@@ -250,7 +266,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ── Fetch branch metrics from backend ──
   const fetchMetrics = async () => {
     try {
-      const { data } = await apiClient.get('/admin/metrics/daily');
+      const { data } = await apiClient.get("/admin/metrics/daily");
       const records: Array<{
         metricDate: string;
         opsCR?: number;
@@ -259,22 +275,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         atVendorTime?: number;
         adjustTime?: number;
         dispatchTime?: number;
-      }> = Array.isArray(data) ? data : data?.data ?? [];
+      }> = Array.isArray(data) ? data : (data?.data ?? []);
 
       if (records.length === 0) return;
 
-      records.sort((a, b) => new Date(a.metricDate).getTime() - new Date(b.metricDate).getTime());
+      records.sort(
+        (a, b) =>
+          new Date(a.metricDate).getTime() - new Date(b.metricDate).getTime(),
+      );
 
       const latest = records[records.length - 1];
       const dateStr = latest.metricDate.slice(0, 10);
 
       const KPI_MAP: Record<BranchKpiKey, keyof typeof latest> = {
-        CR: 'opsCR',
-        PREP: 'prepTime',
-        ORDER: 'orderCount',
-        ATVENDOR: 'atVendorTime',
-        Adjust: 'adjustTime',
-        Dispatch: 'dispatchTime',
+        CR: "opsCR",
+        PREP: "prepTime",
+        ORDER: "orderCount",
+        ATVENDOR: "atVendorTime",
+        Adjust: "adjustTime",
+        Dispatch: "dispatchTime",
       };
 
       setBranchKpis((prev) => {
@@ -314,7 +333,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // ── Toast ──
-  const showToast = (title: string, description: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const showToast = (
+    title: string,
+    description: string,
+    type: "success" | "error" | "info" = "success",
+  ) => {
     const id = Date.now().toString();
     setToast({ id, title, description, type });
     setTimeout(() => setToast((cur) => (cur?.id === id ? null : cur)), 4500);
@@ -331,7 +354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLoginError(null);
     setSessionExpired(false);
     setPickers([]);
-    setActiveTab('dashboard');
+    setActiveTab("dashboard");
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -339,13 +362,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const trimmedPassword = password.trim();
 
     if (!trimmedEmail || !trimmedPassword) {
-      setLoginError('Email and password are required');
+      setLoginError("Email and password are required");
       setSessionExpired(false);
       return false;
     }
 
     try {
-      const { data } = await apiClient.post('/auth/login', {
+      const { data } = await apiClient.post("/auth/login", {
         email: trimmedEmail,
         password: trimmedPassword,
       });
@@ -363,17 +386,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user,
       };
 
-      window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
+      window.localStorage.setItem(
+        AUTH_SESSION_KEY,
+        JSON.stringify(nextSession),
+      );
       setCurrentUser(user);
       setIsAuthenticated(true);
       setLoginError(null);
       setSessionExpired(false);
-      setActiveTab('admin');
+      setActiveTab("admin");
       return true;
     } catch (err: unknown) {
       const message =
-        (err as { response?: { data?: { message?: string } } })
-          ?.response?.data?.message ?? 'Invalid credentials';
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Invalid credentials";
       setLoginError(message);
       setSessionExpired(false);
       return false;
@@ -381,16 +407,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ── Pickers (local operations) ──
-  const addPicker = (id: string, name: string): { success: boolean; error?: string } => {
+  const addPicker = (
+    id: string,
+    name: string,
+  ): { success: boolean; error?: string } => {
     const trimmedId = id.trim().toUpperCase();
     const trimmedName = name.trim();
 
-    if (!trimmedId || !trimmedName) return { success: false, error: 'Picker ID and Name are required.' };
+    if (!trimmedId || !trimmedName)
+      return { success: false, error: "Picker ID and Name are required." };
     if (pickers.some((p) => p.id.toUpperCase() === trimmedId)) {
-      return { success: false, error: `Duplicate ID: Terminal badge ${trimmedId} already registered.` };
+      return {
+        success: false,
+        error: `Duplicate ID: Terminal badge ${trimmedId} already registered.`,
+      };
     }
 
-    const tier: PerformanceTier = 'very_good';
+    const tier: PerformanceTier = "very_good";
     const newPicker: Picker = {
       id: trimmedId,
       name: trimmedName,
@@ -399,21 +432,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tierLabel: getTierLabel(tier),
       tierColor: getTierColor(tier),
       orders: 0,
-      zone: 'Warehouse Floor',
-      subBadge: 'New Registration',
+      zone: "Warehouse Floor",
+      subBadge: "New Registration",
       telemetry: {
         orders: 0,
-        pickingTime: '—',
-        assignmentTime: '—',
-        prepTime: '—',
-        dispatchTime: '—',
-        opsCr: '—',
-        detailedZone: 'Warehouse Floor',
+        pickingTime: "—",
+        assignmentTime: "—",
+        prepTime: "—",
+        dispatchTime: "—",
+        opsCr: "—",
+        detailedZone: "Warehouse Floor",
       },
     };
 
     setPickers((prev) => [newPicker, ...prev]);
-    showToast('Picker Registered', `${trimmedName} (${trimmedId}) added.`);
+    showToast("Picker Registered", `${trimmedName} (${trimmedId}) added.`);
     return { success: true };
   };
 
@@ -421,7 +454,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const candidate = pickers.find((p) => p.id === id);
     if (!candidate) return false;
     setPickers((prev) => prev.filter((p) => p.id !== id));
-    showToast('Picker Removed', `Badge record ${candidate.id} (${candidate.name}) archived.`);
+    showToast(
+      "Picker Removed",
+      `Badge record ${candidate.id} (${candidate.name}) archived.`,
+    );
     return true;
   };
 
@@ -430,9 +466,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBranchKpis((prev) => {
       const current = prev[key];
       const updatedValue =
-        value.includes('%') || value.includes('s') || value.includes('m')
+        value.includes("%") || value.includes("s") || value.includes("m")
           ? value
-          : `${value}${current.unit === '%' ? '%' : current.unit === 's' ? 's' : current.unit === 'm' ? 'm' : ''}`;
+          : `${value}${current.unit === "%" ? "%" : current.unit === "s" ? "s" : current.unit === "m" ? "m" : ""}`;
 
       return {
         ...prev,
@@ -449,21 +485,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ── Uploads ──
-  const addUploadRecord = (fileName: string, size: string, shiftsCount: number) => {
+  const addUploadRecord = (
+    fileName: string,
+    size: string,
+    shiftsCount: number,
+  ) => {
     const newRecord: RecentUpload = {
       id: `up-${Date.now()}`,
       fileName,
       timestamp:
-        new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
-        ' ' +
-        new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }) +
+        " " +
+        new Date().toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       size,
-      status: 'Success',
+      status: "Success",
       shiftsCount,
     };
 
     setRecentUploads((prev) => [newRecord, ...prev]);
-    showToast('Upload Successful', `Ingested ${shiftsCount.toLocaleString()} records from ${fileName}.`);
+    showToast(
+      "Upload Successful",
+      `Ingested ${shiftsCount.toLocaleString()} records from ${fileName}.`,
+    );
 
     // Refresh pickers after successful import
     fetchPickers();
@@ -513,6 +563,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) throw new Error('useApp must be used within an AppProvider');
+  if (!context) throw new Error("useApp must be used within an AppProvider");
   return context;
 };

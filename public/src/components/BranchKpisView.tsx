@@ -1,20 +1,29 @@
-import React, { useRef, useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { BranchKpiKey } from '../types';
+import React, { useRef, useState } from "react";
+import { useApp } from "../context/AppContext";
+import { BranchKpiKey } from "../types";
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
 
 export const BranchKpisView: React.FC = () => {
   const { branchKpis, activeKpiKey, setActiveKpiKey } = useApp();
   const [showErrorBanner, setShowErrorBanner] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-  const [chartTooltip, setChartTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [chartTooltip, setChartTooltip] = useState<{
+    text: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const chartAreaRef = useRef<HTMLDivElement | null>(null);
 
   const currentCfg = branchKpis[activeKpiKey];
   const tooltipText = activeTooltip || currentCfg.latestTooltip;
 
-  const updateTooltipFromPointer = (clientX: number, clientY: number, label: string) => {
+  const updateTooltipFromPointer = (
+    clientX: number,
+    clientY: number,
+    label: string,
+  ) => {
     const chartRect = chartAreaRef.current?.getBoundingClientRect();
 
     if (!chartRect) {
@@ -58,19 +67,23 @@ export const BranchKpisView: React.FC = () => {
 
         <div className="flex items-center gap-4 shrink-0">
           <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-[#94A3B8] bg-[#151F32] px-3 py-1.5 rounded-md border border-[#1E293B]">
-            <span className="material-symbols-outlined text-sm text-[#38BDF8]">schedule</span>
+            <span className="material-symbols-outlined text-sm text-[#38BDF8]">
+              schedule
+            </span>
             <span>
-              Last Updated:{' '}
+              Last Updated:{" "}
               {currentCfg.historyData && currentCfg.historyData.length > 0
-                ? new Date(currentCfg.historyData[currentCfg.historyData.length - 1].date).toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
+                ? new Date(
+                    currentCfg.historyData[currentCfg.historyData.length - 1]
+                      .date,
+                  ).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
                   })
-                : '—'}
+                : "—"}
             </span>
           </div>
-
         </div>
       </header>
 
@@ -80,7 +93,9 @@ export const BranchKpisView: React.FC = () => {
         {showErrorBanner && (
           <div className="p-3.5 bg-red-950/30 border border-red-500/30 rounded-lg flex items-center justify-between gap-4 animate-in fade-in">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-red-400 text-xl">warning</span>
+              <span className="material-symbols-outlined text-red-400 text-xl">
+                warning
+              </span>
               <span className="text-xs md:text-sm text-red-200 font-medium">
                 Failed to load real-time branch sync for external warehouse pods
               </span>
@@ -97,7 +112,9 @@ export const BranchKpisView: React.FC = () => {
                 className="text-[#94A3B8] hover:text-[#F8FAFC] p-1 cursor-pointer"
                 title="Dismiss"
               >
-                <span className="material-symbols-outlined text-base">close</span>
+                <span className="material-symbols-outlined text-base">
+                  close
+                </span>
               </button>
             </div>
           </div>
@@ -106,7 +123,16 @@ export const BranchKpisView: React.FC = () => {
         {/* 6 KPI Cards in Exact Sequence: CR, PREP, ORDER, ATVENDOR, Adjust, Dispatch */}
         <section aria-label="Branch Key Performance Indicators">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {(['CR', 'PREP', 'ORDER', 'ATVENDOR', 'Adjust', 'Dispatch'] as BranchKpiKey[]).map((kpiKey) => {
+            {(
+              [
+                "CR",
+                "PREP",
+                "ORDER",
+                "ATVENDOR",
+                "Adjust",
+                "Dispatch",
+              ] as BranchKpiKey[]
+            ).map((kpiKey) => {
               const kpi = branchKpis[kpiKey];
               const isSelected = activeKpiKey === kpiKey;
               return (
@@ -115,13 +141,15 @@ export const BranchKpisView: React.FC = () => {
                   onClick={() => handleSelectKpi(kpiKey)}
                   className={`text-left p-4 rounded-lg bg-[#151F32] border transition-all duration-150 flex flex-col justify-between h-28 focus:outline-none cursor-pointer group ${
                     isSelected
-                      ? 'border-[#38BDF8] kpi-active-glow'
-                      : 'border-[#1E293B] hover:border-[#334155]'
+                      ? "border-[#38BDF8] kpi-active-glow"
+                      : "border-[#1E293B] hover:border-[#334155]"
                   }`}
                 >
                   <div
                     className={`text-xs font-mono font-semibold tracking-wider uppercase transition-colors ${
-                      isSelected ? 'text-[#38BDF8]' : 'text-[#94A3B8] group-hover:text-[#F8FAFC]'
+                      isSelected
+                        ? "text-[#38BDF8]"
+                        : "text-[#94A3B8] group-hover:text-[#F8FAFC]"
                     }`}
                   >
                     {kpi.label}
@@ -145,7 +173,9 @@ export const BranchKpisView: React.FC = () => {
               </h2>
 
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-mono font-semibold bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/30">
-                <span className="material-symbols-outlined text-sm">{currentCfg.icon}</span>
+                <span className="material-symbols-outlined text-sm">
+                  {currentCfg.icon}
+                </span>
                 <span>{currentCfg.badge}</span>
               </span>
 
@@ -158,21 +188,32 @@ export const BranchKpisView: React.FC = () => {
 
             {/* Switcher Pills for all 6 KPIs */}
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-              {(['CR', 'PREP', 'ORDER', 'ATVENDOR', 'Adjust', 'Dispatch'] as BranchKpiKey[]).map((kpiKey) => {
+              {(
+                [
+                  "CR",
+                  "PREP",
+                  "ORDER",
+                  "ATVENDOR",
+                  "Adjust",
+                  "Dispatch",
+                ] as BranchKpiKey[]
+              ).map((kpiKey) => {
                 const kpi = branchKpis[kpiKey];
                 const isSelected = activeKpiKey === kpiKey;
-                const chartTypeLabel = kpi.type === 'line' ? 'Line' : 'Bar';
+                const chartTypeLabel = kpi.type === "line" ? "Line" : "Bar";
                 return (
                   <button
                     key={kpiKey}
                     onClick={() => handleSelectKpi(kpiKey)}
                     className={`px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                       isSelected
-                        ? 'bg-[#38BDF8] text-[#0B1120]'
-                        : 'bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B]'
+                        ? "bg-[#38BDF8] text-[#0B1120]"
+                        : "bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B]"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-sm">{kpi.icon}</span>
+                    <span className="material-symbols-outlined text-sm">
+                      {kpi.icon}
+                    </span>
                     <span>
                       {kpi.label} ({chartTypeLabel})
                     </span>
@@ -183,7 +224,10 @@ export const BranchKpisView: React.FC = () => {
           </div>
 
           {/* Chart Graphic Workspace */}
-          <div ref={chartAreaRef} className="relative w-full h-80 lg:h-96 overflow-visible">
+          <div
+            ref={chartAreaRef}
+            className="relative w-full h-80 lg:h-96 overflow-visible"
+          >
             {/* Y-Axis Labels */}
             <div className="absolute left-0 inset-y-0 w-14 flex flex-col justify-between text-[11px] font-mono text-[#64748B] pb-6 pt-2 select-none pointer-events-none text-right pr-2">
               {currentCfg.yAxis.map((label, idx) => (
@@ -194,44 +238,147 @@ export const BranchKpisView: React.FC = () => {
             {/* Dynamic SVG Chart Canvas */}
             <div className="ml-14 h-full flex flex-col justify-between">
               <div className="relative flex-1 w-full overflow-visible">
-                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 700 240">
+                <svg
+                  className="w-full h-full overflow-visible"
+                  preserveAspectRatio="none"
+                  viewBox="0 0 700 240"
+                >
                   <defs>
-                    <linearGradient id="kpiChartGradient" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.0" />
+                    <linearGradient
+                      id="kpiChartGradient"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="#38BDF8"
+                        stopOpacity="0.35"
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="#38BDF8"
+                        stopOpacity="0.0"
+                      />
                     </linearGradient>
-                    <linearGradient id="kpiBarGradient" x1="0" x2="0" y1="0" y2="1">
+                    <linearGradient
+                      id="kpiBarGradient"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
                       <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.9" />
-                      <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.3" />
+                      <stop
+                        offset="100%"
+                        stopColor="#38BDF8"
+                        stopOpacity="0.3"
+                      />
                     </linearGradient>
-                    <linearGradient id="kpiBarActiveGradient" x1="0" x2="0" y1="0" y2="1">
+                    <linearGradient
+                      id="kpiBarActiveGradient"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
                       <stop offset="0%" stopColor="#7dd3fc" stopOpacity="1" />
-                      <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.6" />
+                      <stop
+                        offset="100%"
+                        stopColor="#38BDF8"
+                        stopOpacity="0.6"
+                      />
                     </linearGradient>
-                    <linearGradient id="kpiLineStroke" x1="0" x2="1" y1="0" y2="0">
+                    <linearGradient
+                      id="kpiLineStroke"
+                      x1="0"
+                      x2="1"
+                      y1="0"
+                      y2="0"
+                    >
                       <stop offset="0%" stopColor="#7DD3FC" />
                       <stop offset="100%" stopColor="#38BDF8" />
                     </linearGradient>
                   </defs>
 
                   {/* Horizontal Grid lines */}
-                  <line stroke="#1E293B" strokeDasharray="4 4" strokeWidth="1" x1="0" x2="700" y1="10" y2="10" />
-                  <line stroke="#1E293B" strokeDasharray="4 4" strokeWidth="1" x1="0" x2="700" y1="56" y2="56" />
-                  <line stroke="#1E293B" strokeDasharray="4 4" strokeWidth="1" x1="0" x2="700" y1="102" y2="102" />
-                  <line stroke="#1E293B" strokeDasharray="4 4" strokeWidth="1" x1="0" x2="700" y1="148" y2="148" />
-                  <line stroke="#1E293B" strokeDasharray="4 4" strokeWidth="1" x1="0" x2="700" y1="194" y2="194" />
-                  <line stroke="#1E293B" strokeWidth="1.5" x1="0" x2="700" y1="239" y2="239" />
+                  <line
+                    stroke="#1E293B"
+                    strokeDasharray="4 4"
+                    strokeWidth="1"
+                    x1="0"
+                    x2="700"
+                    y1="10"
+                    y2="10"
+                  />
+                  <line
+                    stroke="#1E293B"
+                    strokeDasharray="4 4"
+                    strokeWidth="1"
+                    x1="0"
+                    x2="700"
+                    y1="56"
+                    y2="56"
+                  />
+                  <line
+                    stroke="#1E293B"
+                    strokeDasharray="4 4"
+                    strokeWidth="1"
+                    x1="0"
+                    x2="700"
+                    y1="102"
+                    y2="102"
+                  />
+                  <line
+                    stroke="#1E293B"
+                    strokeDasharray="4 4"
+                    strokeWidth="1"
+                    x1="0"
+                    x2="700"
+                    y1="148"
+                    y2="148"
+                  />
+                  <line
+                    stroke="#1E293B"
+                    strokeDasharray="4 4"
+                    strokeWidth="1"
+                    x1="0"
+                    x2="700"
+                    y1="194"
+                    y2="194"
+                  />
+                  <line
+                    stroke="#1E293B"
+                    strokeWidth="1.5"
+                    x1="0"
+                    x2="700"
+                    y1="239"
+                    y2="239"
+                  />
 
                   {/* Vertical Guide Lines */}
                   {[50, 150, 250, 350, 450, 550, 650].map((vx) => (
-                    <line key={vx} stroke="#1E293B" strokeOpacity="0.4" strokeWidth="1" x1={vx} x2={vx} y1="0" y2="240" />
+                    <line
+                      key={vx}
+                      stroke="#1E293B"
+                      strokeOpacity="0.4"
+                      strokeWidth="1"
+                      x1={vx}
+                      x2={vx}
+                      y1="0"
+                      y2="240"
+                    />
                   ))}
 
                   {/* LINE CHART MODE */}
-                  {currentCfg.type === 'line' && (
+                  {currentCfg.type === "line" && (
                     <g>
                       {currentCfg.fillPoints && (
-                        <polygon fill="url(#kpiChartGradient)" points={currentCfg.fillPoints} />
+                        <polygon
+                          fill="url(#kpiChartGradient)"
+                          points={currentCfg.fillPoints}
+                        />
                       )}
                       {currentCfg.points && (
                         <polyline
@@ -249,24 +396,46 @@ export const BranchKpisView: React.FC = () => {
                           cx={pt.cx}
                           cy={pt.cy}
                           r={pt.active ? 6.5 : 5}
-                          fill={pt.active ? '#38BDF8' : '#151F32'}
-                          stroke={pt.active ? '#F8FAFC' : '#38BDF8'}
+                          fill={pt.active ? "#38BDF8" : "#151F32"}
+                          stroke={pt.active ? "#F8FAFC" : "#38BDF8"}
                           strokeWidth="2.5"
                           className="cursor-pointer"
                           tabIndex={0}
                           aria-label={pt.label}
-                          onClick={(event) => updateTooltipFromPointer(event.clientX, event.clientY, pt.label)}
-                          onMouseEnter={(event) => updateTooltipFromPointer(event.clientX, event.clientY, pt.label)}
+                          onClick={(event) =>
+                            updateTooltipFromPointer(
+                              event.clientX,
+                              event.clientY,
+                              pt.label,
+                            )
+                          }
+                          onMouseEnter={(event) =>
+                            updateTooltipFromPointer(
+                              event.clientX,
+                              event.clientY,
+                              pt.label,
+                            )
+                          }
                           onMouseLeave={clearChartTooltip}
                           onFocus={(event) => {
-                            const rect = event.currentTarget.getBoundingClientRect();
-                            updateTooltipFromPointer(rect.left + rect.width / 2, rect.top + rect.height / 2, pt.label);
+                            const rect =
+                              event.currentTarget.getBoundingClientRect();
+                            updateTooltipFromPointer(
+                              rect.left + rect.width / 2,
+                              rect.top + rect.height / 2,
+                              pt.label,
+                            );
                           }}
                           onBlur={clearChartTooltip}
                           onTouchStart={(event) => {
-                            const touch = event.touches[0] ?? event.changedTouches[0];
+                            const touch =
+                              event.touches[0] ?? event.changedTouches[0];
                             if (touch) {
-                              updateTooltipFromPointer(touch.clientX, touch.clientY, pt.label);
+                              updateTooltipFromPointer(
+                                touch.clientX,
+                                touch.clientY,
+                                pt.label,
+                              );
                             }
                           }}
                         />
@@ -275,7 +444,7 @@ export const BranchKpisView: React.FC = () => {
                   )}
 
                   {/* BAR CHART MODE */}
-                  {currentCfg.type === 'bar' && (
+                  {currentCfg.type === "bar" && (
                     <g>
                       {currentCfg.bars?.map((bar, idx) => (
                         <rect
@@ -286,24 +455,50 @@ export const BranchKpisView: React.FC = () => {
                           height={bar.height}
                           rx="4"
                           ry="4"
-                          fill={bar.active ? 'url(#kpiBarActiveGradient)' : 'url(#kpiBarGradient)'}
-                          stroke={bar.active ? '#7dd3fc' : '#38BDF8'}
+                          fill={
+                            bar.active
+                              ? "url(#kpiBarActiveGradient)"
+                              : "url(#kpiBarGradient)"
+                          }
+                          stroke={bar.active ? "#7dd3fc" : "#38BDF8"}
                           strokeWidth="1"
                           className="cursor-pointer"
                           tabIndex={0}
                           aria-label={bar.label}
-                          onClick={(event) => updateTooltipFromPointer(event.clientX, event.clientY, bar.label)}
-                          onMouseEnter={(event) => updateTooltipFromPointer(event.clientX, event.clientY, bar.label)}
+                          onClick={(event) =>
+                            updateTooltipFromPointer(
+                              event.clientX,
+                              event.clientY,
+                              bar.label,
+                            )
+                          }
+                          onMouseEnter={(event) =>
+                            updateTooltipFromPointer(
+                              event.clientX,
+                              event.clientY,
+                              bar.label,
+                            )
+                          }
                           onMouseLeave={clearChartTooltip}
                           onFocus={(event) => {
-                            const rect = event.currentTarget.getBoundingClientRect();
-                            updateTooltipFromPointer(rect.left + rect.width / 2, rect.top + rect.height / 2, bar.label);
+                            const rect =
+                              event.currentTarget.getBoundingClientRect();
+                            updateTooltipFromPointer(
+                              rect.left + rect.width / 2,
+                              rect.top + rect.height / 2,
+                              bar.label,
+                            );
                           }}
                           onBlur={clearChartTooltip}
                           onTouchStart={(event) => {
-                            const touch = event.touches[0] ?? event.changedTouches[0];
+                            const touch =
+                              event.touches[0] ?? event.changedTouches[0];
                             if (touch) {
-                              updateTooltipFromPointer(touch.clientX, touch.clientY, bar.label);
+                              updateTooltipFromPointer(
+                                touch.clientX,
+                                touch.clientY,
+                                bar.label,
+                              );
                             }
                           }}
                         />
@@ -318,7 +513,7 @@ export const BranchKpisView: React.FC = () => {
                     style={{
                       left: `${chartTooltip.x}px`,
                       top: `${chartTooltip.y}px`,
-                      transform: 'translate(-50%, -110%)',
+                      transform: "translate(-50%, -110%)",
                     }}
                   >
                     {chartTooltip.text}
@@ -330,20 +525,28 @@ export const BranchKpisView: React.FC = () => {
               <div className="flex justify-between text-[11px] font-mono text-[#64748B] pt-3 select-none border-t border-[#1E293B] px-4">
                 {(currentCfg.historyData && currentCfg.historyData.length > 0
                   ? currentCfg.historyData.slice(-7).map((d, idx, arr) => ({
-                      label: new Date(d.date).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
+                      label: new Date(d.date).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
                       }),
                       isLast: idx === arr.length - 1,
                     }))
-                  : ['12 Oct', '13 Oct', '14 Oct', '15 Oct', '16 Oct', '17 Oct', '18 Oct'].map((d, idx, arr) => ({
+                  : [
+                      "12 Oct",
+                      "13 Oct",
+                      "14 Oct",
+                      "15 Oct",
+                      "16 Oct",
+                      "17 Oct",
+                      "18 Oct",
+                    ].map((d, idx, arr) => ({
                       label: d,
                       isLast: idx === arr.length - 1,
                     }))
                 ).map(({ label, isLast }) => (
                   <span
-                    key={`${label}-${isLast ? 'last' : 'mid'}`}
-                    className={`text-center w-12 cursor-pointer hover:text-[#F8FAFC] ${isLast ? 'font-bold text-[#38BDF8]' : ''}`}
+                    key={`${label}-${isLast ? "last" : "mid"}`}
+                    className={`text-center w-12 cursor-pointer hover:text-[#F8FAFC] ${isLast ? "font-bold text-[#38BDF8]" : ""}`}
                   >
                     {label}
                   </span>
@@ -355,9 +558,12 @@ export const BranchKpisView: React.FC = () => {
           {/* Footer Data Integrity Mandate Note */}
           <div className="mt-5 pt-4 border-t border-[#1E293B] flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-[#64748B] font-mono gap-2">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm text-[#94A3B8]">info</span>
+              <span className="material-symbols-outlined text-sm text-[#94A3B8]">
+                info
+              </span>
               <span>
-                Demonstration data isolation note: No data fabricated; missing dates are preserved without artificial zeros.
+                Demonstration data isolation note: No data fabricated; missing
+                dates are preserved without artificial zeros.
               </span>
             </div>
             <div className="flex items-center gap-2 text-[11px]">
@@ -366,7 +572,6 @@ export const BranchKpisView: React.FC = () => {
             </div>
           </div>
         </section>
-
       </main>
     </div>
   );
