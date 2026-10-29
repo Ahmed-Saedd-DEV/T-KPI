@@ -35,6 +35,7 @@ export interface Picker {
 }
 
 export type BranchKpiKey = 'CR' | 'PREP' | 'ORDER' | 'ATVENDOR' | 'Adjust' | 'Dispatch';
+export type BranchKpiStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error' | 'stale';
 
 export interface ChartCoord {
   cx: number;

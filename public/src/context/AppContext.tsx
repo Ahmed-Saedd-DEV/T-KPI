@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   NavTab,
   Picker,
@@ -6,9 +12,17 @@ import {
   BranchKpiConfig,
   RecentUpload,
   PerformanceTier,
+  BranchKpiStatus,
 } from "../types";
 import { INITIAL_BRANCH_KPIS, INITIAL_UPLOADS } from "../data/initialData";
 import apiClient from "../api/client";
+import {
+  BranchMetricRecord,
+  buildBranchKpiRuntimeSnapshot,
+  buildNoDataBranchKpiSnapshot,
+  extractBranchMetricRecords,
+  transformBranchKpiRecords,
+} from "../utils/branchKpiTransform";
 
 interface ToastMessage {
   id: string;
@@ -37,7 +51,13 @@ interface AppContextType {
   pickersLoading: boolean;
   pickersError: string | null;
   fetchPickers: () => Promise<void>;
-  fetchMetrics: () => Promise<void>;
+  fetchMetrics: () => Promise<{
+    success: boolean;
+    status: BranchKpiStatus;
+    empty: boolean;
+    stale: boolean;
+    error?: string;
+  }>;
   addPicker: (id: string, name: string) => { success: boolean; error?: string };
   removePicker: (id: string) => boolean;
   selectedTelemetryPicker: Picker | null;
@@ -47,6 +67,8 @@ interface AppContextType {
   isRemovePickerOpen: boolean;
   setIsRemovePickerOpen: (open: boolean) => void;
   branchKpis: Record<BranchKpiKey, BranchKpiConfig>;
+  branchKpisStatus: BranchKpiStatus;
+  branchKpisError: string | null;
   activeKpiKey: BranchKpiKey;
   setActiveKpiKey: (key: BranchKpiKey) => void;
   updateBranchKpi: (key: BranchKpiKey, value: string, date: string) => void;
@@ -194,11 +216,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     useState<Picker | null>(null);
   const [isAddPickerOpen, setIsAddPickerOpen] = useState(false);
   const [isRemovePickerOpen, setIsRemovePickerOpen] = useState(false);
-  const [branchKpis, setBranchKpis] =
-    useState<Record<BranchKpiKey, BranchKpiConfig>>(INITIAL_BRANCH_KPIS);
+  const [branchKpis, setBranchKpis] = useState<
+    Record<BranchKpiKey, BranchKpiConfig>
+  >(buildNoDataBranchKpiSnapshot(INITIAL_BRANCH_KPIS));
+  const [branchKpisStatus, setBranchKpisStatus] =
+    useState<BranchKpiStatus>("idle");
+  const [branchKpisError, setBranchKpisError] = useState<string | null>(null);
   const [activeKpiKey, setActiveKpiKey] = useState<BranchKpiKey>("CR");
   const [recentUploads, setRecentUploads] =
     useState<RecentUpload[]>(INITIAL_UPLOADS);
+  const latestBranchMetricRequestRef = useRef(0);
+  const lastConfirmedBranchSnapshotRef = useRef<Record<
+    BranchKpiKey,
+    BranchKpiConfig
+  > | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -264,74 +295,134 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   // ── Fetch branch metrics from backend ──
-  const fetchMetrics = async () => {
+  const fetchMetrics = async (): Promise<{
+    success: boolean;
+    status: BranchKpiStatus;
+    empty: boolean;
+    stale: boolean;
+    error?: string;
+  }> => {
+    const requestId = ++latestBranchMetricRequestRef.current;
+    setBranchKpisStatus("loading");
+    setBranchKpisError(null);
+
     try {
-      const { data } = await apiClient.get<{
-        data: Array<{
-          metricDate: string;
-          opsCR?: number;
-          prepTime?: number;
-          orderCount?: number;
-          atVendorTime?: number;
-          adjustTime?: number;
-          dispatchTime?: number;
-        }>;
-      }>("/admin/metrics/daily");
+      const { data } = await apiClient.get<unknown>("/admin/metrics/daily");
 
-      const records = data.data ?? [];
-      if (records.length === 0) return;
+      const records = extractBranchMetricRecords(data);
 
-      records.sort(
-        (a, b) =>
-          new Date(a.metricDate).getTime() - new Date(b.metricDate).getTime(),
+      if (requestId !== latestBranchMetricRequestRef.current) {
+        return {
+          success: false,
+          status: "stale",
+          empty: false,
+          stale: true,
+          error: "Superseded by a newer branch KPI refresh.",
+        };
+      }
+
+      if (records === null) {
+        const message =
+          "Malformed branch KPI response: expected a raw metric array.";
+        if (lastConfirmedBranchSnapshotRef.current) {
+          setBranchKpis(lastConfirmedBranchSnapshotRef.current);
+          setBranchKpisStatus("stale");
+          setBranchKpisError(
+            "Stale data: showing the last confirmed backend snapshot.",
+          );
+          return {
+            success: false,
+            status: "stale",
+            empty: false,
+            stale: true,
+            error: message,
+          };
+        }
+
+        const noDataSnapshot =
+          buildNoDataBranchKpiSnapshot(INITIAL_BRANCH_KPIS);
+        setBranchKpis(noDataSnapshot);
+        setBranchKpisStatus("error");
+        setBranchKpisError(
+          "Failed to load branch KPI data. Showing no live values.",
+        );
+        return {
+          success: false,
+          status: "error",
+          empty: false,
+          stale: false,
+          error: message,
+        };
+      }
+
+      const nextSnapshot = buildBranchKpiRuntimeSnapshot(
+        INITIAL_BRANCH_KPIS,
+        transformBranchKpiRecords(records),
       );
 
-      const latest = records[records.length - 1];
-      const dateStr = latest.metricDate.slice(0, 10);
+      if (records.length === 0) {
+        const noDataSnapshot =
+          buildNoDataBranchKpiSnapshot(INITIAL_BRANCH_KPIS);
+        setBranchKpis(noDataSnapshot);
+        setBranchKpisStatus("empty");
+        setBranchKpisError(null);
+        lastConfirmedBranchSnapshotRef.current = noDataSnapshot;
+        return { success: true, status: "empty", empty: true, stale: false };
+      }
 
-      const KPI_MAP: Record<BranchKpiKey, keyof typeof latest> = {
-        CR: "opsCR",
-        PREP: "prepTime",
-        ORDER: "orderCount",
-        ATVENDOR: "atVendorTime",
-        Adjust: "adjustTime",
-        Dispatch: "dispatchTime",
+      setBranchKpis(nextSnapshot);
+      setBranchKpisStatus("loaded");
+      setBranchKpisError(null);
+      lastConfirmedBranchSnapshotRef.current = nextSnapshot;
+      return { success: true, status: "loaded", empty: false, stale: false };
+    } catch (error: unknown) {
+      if (requestId !== latestBranchMetricRequestRef.current) {
+        return {
+          success: false,
+          status: "stale",
+          empty: false,
+          stale: true,
+          error: "Superseded by a newer branch KPI refresh.",
+        };
+      }
+
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ?? "Failed to load branch KPI data.";
+
+      if (lastConfirmedBranchSnapshotRef.current) {
+        setBranchKpis(lastConfirmedBranchSnapshotRef.current);
+        setBranchKpisStatus("stale");
+        setBranchKpisError(
+          "Stale data: showing the last confirmed backend snapshot.",
+        );
+        return {
+          success: false,
+          status: "stale",
+          empty: false,
+          stale: true,
+          error: message,
+        };
+      }
+
+      const noDataSnapshot = buildNoDataBranchKpiSnapshot(INITIAL_BRANCH_KPIS);
+      setBranchKpis(noDataSnapshot);
+      setBranchKpisStatus("error");
+      setBranchKpisError(
+        "Failed to load branch KPI data. Showing no live values.",
+      );
+      return {
+        success: false,
+        status: "error",
+        empty: false,
+        stale: false,
+        error: message,
       };
-
-      setBranchKpis((prev) => {
-        const updated = { ...prev };
-
-        (Object.keys(KPI_MAP) as BranchKpiKey[]).forEach((key) => {
-          const backendKey = KPI_MAP[key];
-          const value = latest[backendKey];
-
-          if (value !== undefined && value !== null) {
-            const displayValue = String(value);
-            const historyData = records
-              .map((r) => ({
-                date: r.metricDate,
-                value: Number(r[backendKey] ?? 0),
-              }))
-              .filter((entry) => entry.date);
-
-            updated[key] = {
-              ...prev[key],
-              currentValue: displayValue,
-              latestTooltip: `${dateStr.slice(8, 10)}/${dateStr.slice(5, 7)} — ${key}: ${displayValue}`,
-              historyData,
-            };
-          }
-        });
-
-        return updated;
-      });
-    } catch {
-      // silently fail — keep existing data
     }
   };
 
   useEffect(() => {
-    fetchMetrics();
+    void fetchMetrics();
   }, []);
 
   // ── Toast ──
@@ -541,6 +632,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         isRemovePickerOpen,
         setIsRemovePickerOpen,
         branchKpis,
+        branchKpisStatus,
+        branchKpisError,
         activeKpiKey,
         setActiveKpiKey,
         updateBranchKpi,

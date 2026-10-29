@@ -1,12 +1,20 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { BranchKpiKey } from "../types";
+import { buildChartGeometry } from "../utils/chartGeometry";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
 export const BranchKpisView: React.FC = () => {
-  const { branchKpis, activeKpiKey, setActiveKpiKey } = useApp();
+  const {
+    branchKpis,
+    branchKpisStatus,
+    branchKpisError,
+    fetchMetrics,
+    activeKpiKey,
+    setActiveKpiKey,
+  } = useApp();
   const [showErrorBanner, setShowErrorBanner] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [chartTooltip, setChartTooltip] = useState<{
@@ -17,7 +25,22 @@ export const BranchKpisView: React.FC = () => {
   const chartAreaRef = useRef<HTMLDivElement | null>(null);
 
   const currentCfg = branchKpis[activeKpiKey];
+  const chartGeometry = useMemo(
+    () => buildChartGeometry(currentCfg.historyData ?? [], currentCfg.unit),
+    [currentCfg.historyData, currentCfg.unit],
+  );
   const tooltipText = activeTooltip || currentCfg.latestTooltip;
+  const hasLiveMeasurements =
+    currentCfg.historyData !== undefined && currentCfg.historyData.length > 0;
+  const latestMeasurementDate =
+    currentCfg.historyData?.[currentCfg.historyData.length - 1]?.date ?? null;
+  const shouldShowChartPlaceholder =
+    branchKpisStatus === "idle" ||
+    branchKpisStatus === "loading" ||
+    branchKpisStatus === "empty" ||
+    branchKpisStatus === "error" ||
+    branchKpisStatus === "stale" ||
+    !hasLiveMeasurements;
 
   const updateTooltipFromPointer = (
     clientX: number,
@@ -90,22 +113,28 @@ export const BranchKpisView: React.FC = () => {
       {/* Content Workspace */}
       <main className="flex-1 px-4 md:px-8 py-6 w-full space-y-6 max-w-7xl mx-auto pb-20 lg:pb-8">
         {/* Error & Live Sync Notification Banner */}
-        {showErrorBanner && (
-          <div className="p-3.5 bg-red-950/30 border border-red-500/30 rounded-lg flex items-center justify-between gap-4 animate-in fade-in">
+        {(showErrorBanner ||
+          branchKpisStatus === "error" ||
+          branchKpisStatus === "stale") && (
+          <div className="p-3.5 border rounded-lg flex items-center justify-between gap-4 animate-in fade-in bg-red-950/30 border-red-500/30">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-red-400 text-xl">
                 warning
               </span>
               <span className="text-xs md:text-sm text-red-200 font-medium">
-                Failed to load real-time branch sync for external warehouse pods
+                {branchKpisError ??
+                  "Failed to load real-time branch sync for external warehouse pods"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowErrorBanner(false)}
+                onClick={() => {
+                  setShowErrorBanner(false);
+                  void fetchMetrics();
+                }}
                 className="px-3 py-1 rounded bg-[#151F32] hover:bg-[#1E293B] text-xs font-semibold text-[#F8FAFC] border border-[#1E293B] transition-colors cursor-pointer"
               >
-                Try Again
+                {branchKpisStatus === "stale" ? "Retry" : "Try Again"}
               </button>
               <button
                 onClick={() => setShowErrorBanner(false)}
@@ -156,6 +185,17 @@ export const BranchKpisView: React.FC = () => {
                   </div>
                   <div className="text-2xl lg:text-3xl font-bold font-mono text-[#F8FAFC]">
                     {kpi.currentValue}
+                  </div>
+                  <div className="text-[10px] font-mono text-[#94A3B8]">
+                    {kpi.historyData && kpi.historyData.length > 0
+                      ? new Date(
+                          kpi.historyData[kpi.historyData.length - 1].date,
+                        ).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "N/A"}
                   </div>
                 </button>
               );
@@ -228,329 +268,353 @@ export const BranchKpisView: React.FC = () => {
             ref={chartAreaRef}
             className="relative w-full h-80 lg:h-96 overflow-visible"
           >
-            {/* Y-Axis Labels */}
-            <div className="absolute left-0 inset-y-0 w-14 flex flex-col justify-between text-[11px] font-mono text-[#64748B] pb-6 pt-2 select-none pointer-events-none text-right pr-2">
-              {currentCfg.yAxis.map((label, idx) => (
-                <span key={idx}>{label}</span>
-              ))}
-            </div>
-
-            {/* Dynamic SVG Chart Canvas */}
-            <div className="ml-14 h-full flex flex-col justify-between">
-              <div className="relative flex-1 w-full overflow-visible">
-                <svg
-                  className="w-full h-full overflow-visible"
-                  preserveAspectRatio="none"
-                  viewBox="0 0 700 240"
-                >
-                  <defs>
-                    <linearGradient
-                      id="kpiChartGradient"
-                      x1="0"
-                      x2="0"
-                      y1="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor="#38BDF8"
-                        stopOpacity="0.35"
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="#38BDF8"
-                        stopOpacity="0.0"
-                      />
-                    </linearGradient>
-                    <linearGradient
-                      id="kpiBarGradient"
-                      x1="0"
-                      x2="0"
-                      y1="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.9" />
-                      <stop
-                        offset="100%"
-                        stopColor="#38BDF8"
-                        stopOpacity="0.3"
-                      />
-                    </linearGradient>
-                    <linearGradient
-                      id="kpiBarActiveGradient"
-                      x1="0"
-                      x2="0"
-                      y1="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="#7dd3fc" stopOpacity="1" />
-                      <stop
-                        offset="100%"
-                        stopColor="#38BDF8"
-                        stopOpacity="0.6"
-                      />
-                    </linearGradient>
-                    <linearGradient
-                      id="kpiLineStroke"
-                      x1="0"
-                      x2="1"
-                      y1="0"
-                      y2="0"
-                    >
-                      <stop offset="0%" stopColor="#7DD3FC" />
-                      <stop offset="100%" stopColor="#38BDF8" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Horizontal Grid lines */}
-                  <line
-                    stroke="#1E293B"
-                    strokeDasharray="4 4"
-                    strokeWidth="1"
-                    x1="0"
-                    x2="700"
-                    y1="10"
-                    y2="10"
-                  />
-                  <line
-                    stroke="#1E293B"
-                    strokeDasharray="4 4"
-                    strokeWidth="1"
-                    x1="0"
-                    x2="700"
-                    y1="56"
-                    y2="56"
-                  />
-                  <line
-                    stroke="#1E293B"
-                    strokeDasharray="4 4"
-                    strokeWidth="1"
-                    x1="0"
-                    x2="700"
-                    y1="102"
-                    y2="102"
-                  />
-                  <line
-                    stroke="#1E293B"
-                    strokeDasharray="4 4"
-                    strokeWidth="1"
-                    x1="0"
-                    x2="700"
-                    y1="148"
-                    y2="148"
-                  />
-                  <line
-                    stroke="#1E293B"
-                    strokeDasharray="4 4"
-                    strokeWidth="1"
-                    x1="0"
-                    x2="700"
-                    y1="194"
-                    y2="194"
-                  />
-                  <line
-                    stroke="#1E293B"
-                    strokeWidth="1.5"
-                    x1="0"
-                    x2="700"
-                    y1="239"
-                    y2="239"
-                  />
-
-                  {/* Vertical Guide Lines */}
-                  {[50, 150, 250, 350, 450, 550, 650].map((vx) => (
-                    <line
-                      key={vx}
-                      stroke="#1E293B"
-                      strokeOpacity="0.4"
-                      strokeWidth="1"
-                      x1={vx}
-                      x2={vx}
-                      y1="0"
-                      y2="240"
-                    />
-                  ))}
-
-                  {/* LINE CHART MODE */}
-                  {currentCfg.type === "line" && (
-                    <g>
-                      {currentCfg.fillPoints && (
-                        <polygon
-                          fill="url(#kpiChartGradient)"
-                          points={currentCfg.fillPoints}
-                        />
-                      )}
-                      {currentCfg.points && (
-                        <polyline
-                          fill="none"
-                          points={currentCfg.points}
-                          stroke="url(#kpiLineStroke)"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="3"
-                        />
-                      )}
-                      {currentCfg.coords?.map((pt, idx) => (
-                        <circle
-                          key={idx}
-                          cx={pt.cx}
-                          cy={pt.cy}
-                          r={pt.active ? 6.5 : 5}
-                          fill={pt.active ? "#38BDF8" : "#151F32"}
-                          stroke={pt.active ? "#F8FAFC" : "#38BDF8"}
-                          strokeWidth="2.5"
-                          className="cursor-pointer"
-                          tabIndex={0}
-                          aria-label={pt.label}
-                          onClick={(event) =>
-                            updateTooltipFromPointer(
-                              event.clientX,
-                              event.clientY,
-                              pt.label,
-                            )
-                          }
-                          onMouseEnter={(event) =>
-                            updateTooltipFromPointer(
-                              event.clientX,
-                              event.clientY,
-                              pt.label,
-                            )
-                          }
-                          onMouseLeave={clearChartTooltip}
-                          onFocus={(event) => {
-                            const rect =
-                              event.currentTarget.getBoundingClientRect();
-                            updateTooltipFromPointer(
-                              rect.left + rect.width / 2,
-                              rect.top + rect.height / 2,
-                              pt.label,
-                            );
-                          }}
-                          onBlur={clearChartTooltip}
-                          onTouchStart={(event) => {
-                            const touch =
-                              event.touches[0] ?? event.changedTouches[0];
-                            if (touch) {
-                              updateTooltipFromPointer(
-                                touch.clientX,
-                                touch.clientY,
-                                pt.label,
-                              );
-                            }
-                          }}
-                        />
-                      ))}
-                    </g>
-                  )}
-
-                  {/* BAR CHART MODE */}
-                  {currentCfg.type === "bar" && (
-                    <g>
-                      {currentCfg.bars?.map((bar, idx) => (
-                        <rect
-                          key={idx}
-                          x={bar.x}
-                          y={bar.y}
-                          width={bar.width}
-                          height={bar.height}
-                          rx="4"
-                          ry="4"
-                          fill={
-                            bar.active
-                              ? "url(#kpiBarActiveGradient)"
-                              : "url(#kpiBarGradient)"
-                          }
-                          stroke={bar.active ? "#7dd3fc" : "#38BDF8"}
-                          strokeWidth="1"
-                          className="cursor-pointer"
-                          tabIndex={0}
-                          aria-label={bar.label}
-                          onClick={(event) =>
-                            updateTooltipFromPointer(
-                              event.clientX,
-                              event.clientY,
-                              bar.label,
-                            )
-                          }
-                          onMouseEnter={(event) =>
-                            updateTooltipFromPointer(
-                              event.clientX,
-                              event.clientY,
-                              bar.label,
-                            )
-                          }
-                          onMouseLeave={clearChartTooltip}
-                          onFocus={(event) => {
-                            const rect =
-                              event.currentTarget.getBoundingClientRect();
-                            updateTooltipFromPointer(
-                              rect.left + rect.width / 2,
-                              rect.top + rect.height / 2,
-                              bar.label,
-                            );
-                          }}
-                          onBlur={clearChartTooltip}
-                          onTouchStart={(event) => {
-                            const touch =
-                              event.touches[0] ?? event.changedTouches[0];
-                            if (touch) {
-                              updateTooltipFromPointer(
-                                touch.clientX,
-                                touch.clientY,
-                                bar.label,
-                              );
-                            }
-                          }}
-                        />
-                      ))}
-                    </g>
-                  )}
-                </svg>
-
-                {chartTooltip && (
-                  <div
-                    className="pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-[#38BDF8]/40 bg-[#0d1c2d]/95 px-2.5 py-1 text-[11px] font-mono text-[#F8FAFC] shadow-[0_12px_30px_rgba(15,23,42,0.8)]"
-                    style={{
-                      left: `${chartTooltip.x}px`,
-                      top: `${chartTooltip.y}px`,
-                      transform: "translate(-50%, -110%)",
-                    }}
-                  >
-                    {chartTooltip.text}
+            {shouldShowChartPlaceholder ? (
+              <div className="flex h-full min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[#334155] bg-[#0d1c2d]/40 text-center px-4">
+                <div>
+                  <div className="text-sm font-semibold text-[#F8FAFC] mb-1">
+                    {branchKpisStatus === "loading"
+                      ? "Loading KPI data..."
+                      : branchKpisStatus === "empty" ||
+                          currentCfg.currentValue === "N/A"
+                        ? "No data"
+                        : branchKpisStatus === "error"
+                          ? "Unable to load KPI data"
+                          : branchKpisStatus === "stale"
+                            ? "Stale Data"
+                            : "No data"}
                   </div>
-                )}
+                  <div className="text-xs text-[#94A3B8]">
+                    {branchKpisStatus === "loading"
+                      ? "Fetching the latest branch measurements."
+                      : branchKpisStatus === "stale"
+                        ? "Showing the last confirmed backend snapshot."
+                        : "Trend chart unavailable until live measurements are available."}
+                  </div>
+                </div>
               </div>
+            ) : (
+              <>
+                {/* Y-Axis Labels */}
+                <div className="absolute left-0 inset-y-0 w-14 flex flex-col justify-between text-[11px] font-mono text-[#64748B] pb-6 pt-2 select-none pointer-events-none text-right pr-2">
+                  {currentCfg.yAxis.map((label, idx) => (
+                    <span key={idx}>{label}</span>
+                  ))}
+                </div>
 
-              {/* X-Axis Labels — dynamic from historyData */}
-              <div className="flex justify-between text-[11px] font-mono text-[#64748B] pt-3 select-none border-t border-[#1E293B] px-4">
-                {(currentCfg.historyData && currentCfg.historyData.length > 0
-                  ? currentCfg.historyData.slice(-7)
-                  : [
-                      { date: "2024-10-12" },
-                      { date: "2024-10-13" },
-                      { date: "2024-10-14" },
-                      { date: "2024-10-15" },
-                      { date: "2024-10-16" },
-                      { date: "2024-10-17" },
-                      { date: "2024-10-18" },
-                    ]
-                ).map((d, idx, arr) => {
-                  const label = new Date(d.date).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "short",
-                  });
-                  const isLast = idx === arr.length - 1;
-                  return (
-                    <span
-                      key={d.date}
-                      className={`text-center w-12 cursor-pointer hover:text-[#F8FAFC] ${isLast ? "font-bold text-[#38BDF8]" : ""}`}
+                {/* Dynamic SVG Chart Canvas */}
+                <div className="ml-14 h-full flex flex-col justify-between">
+                  <div className="relative flex-1 w-full overflow-visible">
+                    <svg
+                      className="w-full h-full overflow-visible"
+                      preserveAspectRatio="none"
+                      viewBox="0 0 700 240"
                     >
-                      {label}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
+                      <defs>
+                        <linearGradient
+                          id="kpiChartGradient"
+                          x1="0"
+                          x2="0"
+                          y1="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="#38BDF8"
+                            stopOpacity="0.35"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#38BDF8"
+                            stopOpacity="0.0"
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="kpiBarGradient"
+                          x1="0"
+                          x2="0"
+                          y1="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="#38BDF8"
+                            stopOpacity="0.9"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#38BDF8"
+                            stopOpacity="0.3"
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="kpiBarActiveGradient"
+                          x1="0"
+                          x2="0"
+                          y1="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="#7dd3fc"
+                            stopOpacity="1"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#38BDF8"
+                            stopOpacity="0.6"
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="kpiLineStroke"
+                          x1="0"
+                          x2="1"
+                          y1="0"
+                          y2="0"
+                        >
+                          <stop offset="0%" stopColor="#7DD3FC" />
+                          <stop offset="100%" stopColor="#38BDF8" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Horizontal Grid lines */}
+                      <line
+                        stroke="#1E293B"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                        x1="0"
+                        x2="700"
+                        y1="10"
+                        y2="10"
+                      />
+                      <line
+                        stroke="#1E293B"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                        x1="0"
+                        x2="700"
+                        y1="56"
+                        y2="56"
+                      />
+                      <line
+                        stroke="#1E293B"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                        x1="0"
+                        x2="700"
+                        y1="102"
+                        y2="102"
+                      />
+                      <line
+                        stroke="#1E293B"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                        x1="0"
+                        x2="700"
+                        y1="148"
+                        y2="148"
+                      />
+                      <line
+                        stroke="#1E293B"
+                        strokeDasharray="4 4"
+                        strokeWidth="1"
+                        x1="0"
+                        x2="700"
+                        y1="194"
+                        y2="194"
+                      />
+                      <line
+                        stroke="#1E293B"
+                        strokeWidth="1.5"
+                        x1="0"
+                        x2="700"
+                        y1="239"
+                        y2="239"
+                      />
+
+                      {/* Vertical Guide Lines */}
+                      {[50, 150, 250, 350, 450, 550, 650].map((vx) => (
+                        <line
+                          key={vx}
+                          stroke="#1E293B"
+                          strokeOpacity="0.4"
+                          strokeWidth="1"
+                          x1={vx}
+                          x2={vx}
+                          y1="0"
+                          y2="240"
+                        />
+                      ))}
+
+                      {/* LINE CHART MODE */}
+                      {currentCfg.type === "line" && (
+                        <g>
+                          {chartGeometry.fillPoints && (
+                            <polygon
+                              fill="url(#kpiChartGradient)"
+                              points={chartGeometry.fillPoints}
+                            />
+                          )}
+                          {chartGeometry.points && (
+                            <polyline
+                              fill="none"
+                              points={chartGeometry.points}
+                              stroke="url(#kpiLineStroke)"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="3"
+                            />
+                          )}
+                          {chartGeometry.coords.map((pt, idx) => (
+                            <circle
+                              key={idx}
+                              cx={pt.cx}
+                              cy={pt.cy}
+                              r={pt.active ? 6.5 : 5}
+                              fill={pt.active ? "#38BDF8" : "#151F32"}
+                              stroke={pt.active ? "#F8FAFC" : "#38BDF8"}
+                              strokeWidth="2.5"
+                              className="cursor-pointer"
+                              tabIndex={0}
+                              aria-label={pt.label}
+                              onClick={(event) =>
+                                updateTooltipFromPointer(
+                                  event.clientX,
+                                  event.clientY,
+                                  pt.label,
+                                )
+                              }
+                              onMouseEnter={(event) =>
+                                updateTooltipFromPointer(
+                                  event.clientX,
+                                  event.clientY,
+                                  pt.label,
+                                )
+                              }
+                              onMouseLeave={clearChartTooltip}
+                              onFocus={(event) => {
+                                const rect =
+                                  event.currentTarget.getBoundingClientRect();
+                                updateTooltipFromPointer(
+                                  rect.left + rect.width / 2,
+                                  rect.top + rect.height / 2,
+                                  pt.label,
+                                );
+                              }}
+                              onBlur={clearChartTooltip}
+                              onTouchStart={(event) => {
+                                const touch =
+                                  event.touches[0] ?? event.changedTouches[0];
+                                if (touch) {
+                                  updateTooltipFromPointer(
+                                    touch.clientX,
+                                    touch.clientY,
+                                    pt.label,
+                                  );
+                                }
+                              }}
+                            />
+                          ))}
+                        </g>
+                      )}
+
+                      {/* BAR CHART MODE */}
+                      {currentCfg.type === "bar" && (
+                        <g>
+                          {chartGeometry.bars.map((bar, idx) => (
+                            <rect
+                              key={idx}
+                              x={bar.x}
+                              y={bar.y}
+                              width={bar.width}
+                              height={bar.height}
+                              rx="4"
+                              ry="4"
+                              fill={
+                                bar.active
+                                  ? "url(#kpiBarActiveGradient)"
+                                  : "url(#kpiBarGradient)"
+                              }
+                              stroke={bar.active ? "#7dd3fc" : "#38BDF8"}
+                              strokeWidth="1"
+                              className="cursor-pointer"
+                              tabIndex={0}
+                              aria-label={bar.label}
+                              onClick={(event) =>
+                                updateTooltipFromPointer(
+                                  event.clientX,
+                                  event.clientY,
+                                  bar.label,
+                                )
+                              }
+                              onMouseEnter={(event) =>
+                                updateTooltipFromPointer(
+                                  event.clientX,
+                                  event.clientY,
+                                  bar.label,
+                                )
+                              }
+                              onMouseLeave={clearChartTooltip}
+                              onFocus={(event) => {
+                                const rect =
+                                  event.currentTarget.getBoundingClientRect();
+                                updateTooltipFromPointer(
+                                  rect.left + rect.width / 2,
+                                  rect.top + rect.height / 2,
+                                  bar.label,
+                                );
+                              }}
+                              onBlur={clearChartTooltip}
+                              onTouchStart={(event) => {
+                                const touch =
+                                  event.touches[0] ?? event.changedTouches[0];
+                                if (touch) {
+                                  updateTooltipFromPointer(
+                                    touch.clientX,
+                                    touch.clientY,
+                                    bar.label,
+                                  );
+                                }
+                              }}
+                            />
+                          ))}
+                        </g>
+                      )}
+                    </svg>
+
+                    {chartTooltip && (
+                      <div
+                        className="pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-[#38BDF8]/40 bg-[#0d1c2d]/95 px-2.5 py-1 text-[11px] font-mono text-[#F8FAFC] shadow-[0_12px_30px_rgba(15,23,42,0.8)]"
+                        style={{
+                          left: `${chartTooltip.x}px`,
+                          top: `${chartTooltip.y}px`,
+                          transform: "translate(-50%, -110%)",
+                        }}
+                      >
+                        {chartTooltip.text}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* X-Axis Labels — dynamic from historyData */}
+                  <div className="flex justify-between text-[11px] font-mono text-[#64748B] pt-3 select-none border-t border-[#1E293B] px-4">
+                    {(chartGeometry.xLabels.length > 0
+                      ? chartGeometry.xLabels
+                      : []
+                    ).map((label, idx, arr) => {
+                      const isLast = idx === arr.length - 1;
+                      return (
+                        <span
+                          key={`${label}-${idx}`}
+                          className={`text-center w-12 cursor-pointer hover:text-[#F8FAFC] ${isLast ? "font-bold text-[#38BDF8]" : ""}`}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Footer Data Integrity Mandate Note */}
