@@ -1,6 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import apiClient from "../api/client";
 import { useApp } from "../context/AppContext";
 import { Picker, PerformanceTier } from "../types";
+import {
+  mapEmployeeToPicker,
+  type BackendEmployee,
+} from "../utils/pickerPresentation";
 
 export const PickersView: React.FC = () => {
   const {
@@ -23,7 +28,20 @@ export const PickersView: React.FC = () => {
     "perf_desc" | "perf_asc" | "alpha_asc" | "orders_desc"
   >("perf_desc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [tablePickers, setTablePickers] = useState<Picker[]>([]);
+  const [tableLoading, setTableLoading] = useState(true);
+  const [tableError, setTableError] = useState<string | null>(null);
+  const [selectedUploadDate, setSelectedUploadDate] = useState("");
   const itemsPerPage = 8;
+  const tableRequestRef = useRef(0);
+  const localRemovedPickerIdsRef = useRef<Set<string>>(new Set());
+  const activeTableQueryRef = useRef<{
+    mode: "latest-batch" | "upload-date";
+    uploadDate: string;
+  }>({
+    mode: "latest-batch",
+    uploadDate: "",
+  });
 
   const [newId, setNewId] = useState("");
   const [newName, setNewName] = useState("");
@@ -33,8 +51,103 @@ export const PickersView: React.FC = () => {
   const [selectedRemoveId, setSelectedRemoveId] = useState<string>("");
   const [isRemoving, setIsRemoving] = useState(false);
 
+  const fetchTablePickers = async (
+    mode: "latest-batch" | "upload-date",
+    uploadDate?: string,
+  ) => {
+    const requestId = ++tableRequestRef.current;
+    activeTableQueryRef.current = {
+      mode,
+      uploadDate: uploadDate ?? "",
+    };
+    setTableLoading(true);
+    setTableError(null);
+
+    const isCurrentRequest = () =>
+      requestId === tableRequestRef.current &&
+      activeTableQueryRef.current.mode === mode &&
+      activeTableQueryRef.current.uploadDate === (uploadDate ?? "");
+
+    const applyLocalVisibility = (rows: Picker[]) =>
+      rows.filter((picker) => !localRemovedPickerIdsRef.current.has(picker.id));
+
+    try {
+      const pageSize = 100;
+      let page = 1;
+      let totalPages = 1;
+      let allRows: BackendEmployee[] = [];
+
+      while (page <= totalPages) {
+        const { data } = await apiClient.get<{
+          data?: BackendEmployee[];
+          pagination?: {
+            total?: number;
+            totalPages?: number;
+            limit?: number;
+            page?: number;
+          };
+        }>("/employees", {
+          params: {
+            mode,
+            page,
+            limit: pageSize,
+            ...(mode === "upload-date" && uploadDate ? { uploadDate } : {}),
+          },
+        });
+
+        if (!isCurrentRequest()) {
+          return;
+        }
+
+        const rows = Array.isArray(data?.data) ? data.data : [];
+        allRows = [...allRows, ...rows];
+
+        const pagination = data?.pagination ?? {};
+        totalPages = Number(
+          pagination.totalPages ??
+            Math.max(
+              1,
+              Math.ceil(
+                (pagination.total ?? rows.length) /
+                  (pagination.limit ?? pageSize),
+              ),
+            ),
+        );
+
+        if (page >= totalPages) {
+          break;
+        }
+
+        page += 1;
+      }
+
+      if (!isCurrentRequest()) {
+        return;
+      }
+
+      setTablePickers(applyLocalVisibility(allRows.map(mapEmployeeToPicker)));
+    } catch {
+      if (!isCurrentRequest()) {
+        return;
+      }
+      setTableError("Failed to load picker data for the selected batch.");
+      setTablePickers([]);
+    } finally {
+      if (isCurrentRequest()) {
+        setTableLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    void fetchTablePickers("latest-batch");
+    return () => {
+      tableRequestRef.current += 1;
+    };
+  }, []);
+
   const filteredPickers = useMemo(() => {
-    let result = [...pickers];
+    let result = [...tablePickers];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -59,7 +172,7 @@ export const PickersView: React.FC = () => {
       return 0;
     });
     return result;
-  }, [pickers, searchQuery, tierFilter, sortBy]);
+  }, [tablePickers, searchQuery, tierFilter, sortBy]);
 
   const totalPages = Math.max(
     1,
@@ -69,6 +182,20 @@ export const PickersView: React.FC = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  const handleDateChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const nextDate = event.target.value;
+    setSelectedUploadDate(nextDate);
+    setCurrentPage(1);
+
+    if (nextDate) {
+      await fetchTablePickers("upload-date", nextDate);
+    } else {
+      await fetchTablePickers("latest-batch");
+    }
+  };
 
   const handleRegisterPicker = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,9 +212,14 @@ export const PickersView: React.FC = () => {
 
   const handleExecuteRemoval = () => {
     if (!selectedRemoveId) return;
+    const removedId = selectedRemoveId;
+    localRemovedPickerIdsRef.current.add(removedId);
+    setTablePickers((prev) => prev.filter((picker) => picker.id !== removedId));
     setIsRemoving(true);
     setTimeout(() => {
-      removePicker(selectedRemoveId);
+      removePicker(removedId);
+      setSelectedRemoveId("");
+      setRemoveSearch("");
       setIsRemoving(false);
       setIsRemovePickerOpen(false);
     }, 800);
@@ -111,8 +243,8 @@ export const PickersView: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 px-4 md:px-8 py-6 space-y-6 w-full max-w-7xl mx-auto pb-20 lg:pb-8">
-        {/* Error State */}
-        {pickersError && (
+        {/* Table Error State */}
+        {tableError && !tableLoading && (
           <div className="bg-[#151F32] border border-[#F87171]/30 rounded-xl p-8 flex flex-col items-center gap-3 text-center">
             <span className="material-symbols-outlined text-[#F87171] text-[32px]">
               sync_problem
@@ -120,9 +252,14 @@ export const PickersView: React.FC = () => {
             <p className="text-sm font-bold text-white">
               Failed to load pickers
             </p>
-            <p className="text-xs text-[#94A3B8]">{pickersError}</p>
+            <p className="text-xs text-[#94A3B8]">{tableError}</p>
             <button
-              onClick={fetchPickers}
+              onClick={() =>
+                void fetchTablePickers(
+                  selectedUploadDate ? "upload-date" : "latest-batch",
+                  selectedUploadDate || undefined,
+                )
+              }
               className="px-4 py-2 bg-[#1B2940] border border-[#334155] rounded-lg text-xs font-semibold text-[#38BDF8] hover:bg-[#223554] transition-colors"
             >
               Retry
@@ -132,42 +269,42 @@ export const PickersView: React.FC = () => {
 
         {/* Filter Bar */}
         <section className="bg-[#151F32] border border-[#1E293B] rounded-xl p-4 shadow-sm">
-          <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
-            <div className="relative flex-1 min-w-[260px]">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B] text-[20px]">
-                search
-              </span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search by picker name or ID..."
-                className="w-full bg-[#0B1120] border border-[#334155] rounded-lg pl-10 pr-10 py-2.5 text-[#F8FAFC] placeholder-[#64748B] text-sm focus:outline-none focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#F8FAFC] p-1 rounded-md transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    close
-                  </span>
-                </button>
-              )}
-            </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-stretch gap-3">
+              <div className="relative min-w-[220px] flex-1 basis-[260px]">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B] text-[20px]">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search by picker name or ID..."
+                  className="w-full bg-[#0B1120] border border-[#334155] rounded-lg pl-10 pr-10 py-2.5 text-[#F8FAFC] placeholder-[#64748B] text-sm focus:outline-none focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] transition-colors min-h-[42px]"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#F8FAFC] p-1 rounded-md transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      close
+                    </span>
+                  </button>
+                )}
+              </div>
 
-            <div className="flex flex-wrap lg:flex-nowrap items-center gap-3">
-              <div className="relative min-w-[170px] flex-1 sm:flex-initial">
+              <div className="relative w-full sm:w-[170px] shrink-0">
                 <select
                   value={tierFilter}
                   onChange={(e) => {
                     setTierFilter(e.target.value as any);
                     setCurrentPage(1);
                   }}
-                  className="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 pr-8 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] appearance-none cursor-pointer"
+                  className="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 pr-8 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] appearance-none cursor-pointer min-h-[42px]"
                 >
                   <option value="all">All Levels</option>
                   <option value="excellent">Excellent (90-100%)</option>
@@ -182,11 +319,11 @@ export const PickersView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="relative min-w-[190px] flex-1 sm:flex-initial">
+              <div className="relative w-full sm:w-[190px] shrink-0">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 pr-8 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] appearance-none cursor-pointer"
+                  className="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 pr-8 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] appearance-none cursor-pointer min-h-[42px]"
                 >
                   <option value="perf_desc">Highest Performance</option>
                   <option value="perf_asc">Lowest Performance</option>
@@ -198,10 +335,37 @@ export const PickersView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              <div className="relative w-full sm:w-[180px] shrink-0">
+                <label className="sr-only" htmlFor="picker-upload-date">
+                  Upload Date
+                </label>
+                <input
+                  id="picker-upload-date"
+                  type="date"
+                  value={selectedUploadDate}
+                  onChange={handleDateChange}
+                  className="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] min-h-[42px]"
+                />
+              </div>
+
+              {selectedUploadDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedUploadDate("");
+                    setCurrentPage(1);
+                    void fetchTablePickers("latest-batch");
+                  }}
+                  className="px-3 py-2 rounded-lg border border-[#334155] bg-[#0B1120] text-[#F8FAFC] text-xs font-semibold hover:bg-[#151F32] transition-colors shrink-0 min-h-[42px]"
+                >
+                  Clear Date
+                </button>
+              )}
+
+              <div className="flex flex-1 flex-wrap items-center justify-end gap-2.5 min-w-[220px]">
                 <button
                   onClick={() => setIsRemovePickerOpen(true)}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-[#F87171]/40 text-[#F87171] hover:bg-[#F87171]/10 hover:border-[#F87171] text-xs font-semibold transition-all cursor-pointer"
+                  className="inline-flex flex-1 min-w-[150px] items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-[#F87171]/40 text-[#F87171] hover:bg-[#F87171]/10 hover:border-[#F87171] text-xs font-semibold transition-all cursor-pointer min-h-[42px]"
                 >
                   <span className="material-symbols-outlined text-[18px]">
                     delete_outline
@@ -210,7 +374,7 @@ export const PickersView: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setIsAddPickerOpen(true)}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#38BDF8] hover:bg-[#7DD3FC] text-[#0B1120] text-xs font-bold transition-all shadow-md shadow-[#38BDF8]/20 cursor-pointer"
+                  className="inline-flex flex-1 min-w-[150px] items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#38BDF8] hover:bg-[#7DD3FC] text-[#0B1120] text-xs font-bold transition-all shadow-md shadow-[#38BDF8]/20 cursor-pointer min-h-[42px]"
                 >
                   <span
                     className="material-symbols-outlined text-[18px]"
@@ -232,8 +396,41 @@ export const PickersView: React.FC = () => {
           </div>
         </section>
 
+        {tableLoading && !tableError && (
+          <div className="bg-[#151F32] border border-[#1E293B] rounded-xl p-8 text-center text-sm text-[#94A3B8]">
+            Loading picker data...
+          </div>
+        )}
+
+        {!tableLoading && !tableError && paginatedPickers.length === 0 && (
+          <div className="bg-[#151F32] border border-[#1E293B] rounded-xl p-12 flex flex-col items-center justify-center text-center space-y-3">
+            <span className="material-symbols-outlined text-[#FB923C] text-[32px]">
+              search_off
+            </span>
+            <div className="text-sm font-bold text-[#F8FAFC]">
+              No pickers found
+            </div>
+            <p className="text-xs text-[#94A3B8] max-w-sm">
+              No badge matches the current filter criteria for the selected
+              upload date.
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setTierFilter("all");
+                setSelectedUploadDate("");
+                setCurrentPage(1);
+                void fetchTablePickers("latest-batch");
+              }}
+              className="px-3.5 py-1.5 rounded-lg bg-[#1B2940] border border-[#334155] text-xs font-semibold text-[#38BDF8] hover:bg-[#223554] transition-colors"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
+
         {/* Picker Grid */}
-        {paginatedPickers.length > 0 ? (
+        {!tableLoading && !tableError && paginatedPickers.length > 0 ? (
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
             {paginatedPickers.map((p) => {
               const perimeter = 163.36;
@@ -355,30 +552,7 @@ export const PickersView: React.FC = () => {
               );
             })}
           </section>
-        ) : (
-          !pickersError && (
-            <div className="bg-[#151F32] border border-[#1E293B] rounded-xl p-12 flex flex-col items-center justify-center text-center space-y-3">
-              <span className="material-symbols-outlined text-[#FB923C] text-[32px]">
-                search_off
-              </span>
-              <div className="text-sm font-bold text-[#F8FAFC]">
-                No pickers found
-              </div>
-              <p className="text-xs text-[#94A3B8] max-w-sm">
-                No badge matches the current filter criteria.
-              </p>
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setTierFilter("all");
-                }}
-                className="px-3.5 py-1.5 rounded-lg bg-[#1B2940] border border-[#334155] text-xs font-semibold text-[#38BDF8] hover:bg-[#223554] transition-colors"
-              >
-                Reset Filters
-              </button>
-            </div>
-          )
-        )}
+        ) : null}
 
         {/* Pagination */}
         {totalPages > 1 && (

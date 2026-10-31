@@ -206,28 +206,30 @@ export const BranchKpisView: React.FC = () => {
         {/* Historical KPI Chart Section with Exact Chart Types */}
         <section className="bg-[#151F32] border border-[#1E293B] rounded-lg p-6 relative overflow-visible">
           {/* Controls Header */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-5 border-b border-[#1E293B] mb-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-xl font-bold text-[#F8FAFC] tracking-tight">
-                {currentCfg.title}
-              </h2>
+          <div className="flex flex-col gap-4 pb-5 border-b border-[#1E293B] mb-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-3 min-w-0">
+                <h2 className="text-xl font-bold text-[#F8FAFC] tracking-tight">
+                  {currentCfg.title}
+                </h2>
 
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-mono font-semibold bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/30">
-                <span className="material-symbols-outlined text-sm">
-                  {currentCfg.icon}
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-mono font-semibold bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/30 shrink-0">
+                  <span className="material-symbols-outlined text-sm">
+                    {currentCfg.icon}
+                  </span>
+                  <span>{currentCfg.badge}</span>
                 </span>
-                <span>{currentCfg.badge}</span>
-              </span>
 
-              {/* Live Hover/Tap Tooltip badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#0d1c2d] border border-[#1E293B] text-xs font-mono text-[#38BDF8] shadow-inner">
-                <span className="inline-block w-2 h-2 rounded-full bg-[#38BDF8] animate-ping"></span>
-                <span>{tooltipText}</span>
+                {/* Live Hover/Tap Tooltip badge */}
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#0d1c2d] border border-[#1E293B] text-xs font-mono text-[#38BDF8] shadow-inner max-w-full">
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#38BDF8] animate-ping shrink-0"></span>
+                  <span className="truncate">{tooltipText}</span>
+                </div>
               </div>
             </div>
 
             {/* Switcher Pills for all 6 KPIs */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+            <div className="flex flex-wrap items-center gap-2 w-full min-w-0">
               {(
                 [
                   "CR",
@@ -245,16 +247,16 @@ export const BranchKpisView: React.FC = () => {
                   <button
                     key={kpiKey}
                     onClick={() => handleSelectKpi(kpiKey)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    className={`inline-flex flex-1 min-w-[120px] max-w-full items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer ${
                       isSelected
                         ? "bg-[#38BDF8] text-[#0B1120]"
                         : "bg-[#0d1c2d] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#1E293B]"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-sm">
+                    <span className="material-symbols-outlined text-sm shrink-0">
                       {kpi.icon}
                     </span>
-                    <span>
+                    <span className="truncate">
                       {kpi.label} ({chartTypeLabel})
                     </span>
                   </button>

@@ -44,7 +44,42 @@ function getEmployeesWithLatestPerformance(searchFilter) {
         take: 1,
         include: {
           importBatch: {
-            select: { id: true, fileName: true, createdAt: true },
+            select: {
+              id: true,
+              fileName: true,
+              createdAt: true,
+              status: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function getEmployeesWithCompletedPerformance(searchFilter, options = {}) {
+  const { take } = options;
+
+  return prisma.employee.findMany({
+    where: searchFilter || undefined,
+    orderBy: { createdAt: "desc" },
+    include: {
+      performances: {
+        where: {
+          importBatch: {
+            status: "COMPLETED",
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        ...(take !== undefined ? { take } : {}),
+        include: {
+          importBatch: {
+            select: {
+              id: true,
+              fileName: true,
+              createdAt: true,
+              status: true,
+            },
           },
         },
       },
@@ -88,6 +123,7 @@ module.exports = {
   deleteById,
   deletePerformancesByEmployeeId,
   getEmployeesWithLatestPerformance,
+  getEmployeesWithCompletedPerformance,
   getTopEmployeesWithLatestPerformance,
   findPerformanceRecordsByEmployeeId,
 };

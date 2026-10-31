@@ -49,6 +49,44 @@ function validateEmployeeList(req, res, next) {
     return next(new AppError("Invalid filter parameters", 400, true));
   }
 
+  const mode =
+    query.mode === undefined
+      ? undefined
+      : String(query.mode).trim().toLowerCase();
+  if (mode !== undefined && !["latest-batch", "upload-date"].includes(mode)) {
+    return next(new AppError("Invalid mode value", 400, true));
+  }
+
+  if (
+    query.uploadDate !== undefined &&
+    (query.mode === undefined || query.mode !== "upload-date")
+  ) {
+    return next(
+      new AppError("uploadDate requires mode=upload-date", 400, true),
+    );
+  }
+
+  if (mode === "upload-date") {
+    if (
+      query.uploadDate === undefined ||
+      query.uploadDate === null ||
+      String(query.uploadDate).trim() === ""
+    ) {
+      return next(
+        new AppError("uploadDate is required when mode=upload-date", 400, true),
+      );
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(query.uploadDate))) {
+      return next(new AppError("Invalid uploadDate value", 400, true));
+    }
+
+    const dateValue = new Date(`${String(query.uploadDate)}T00:00:00.000Z`);
+    if (Number.isNaN(dateValue.getTime())) {
+      return next(new AppError("Invalid uploadDate value", 400, true));
+    }
+  }
+
   const sortBy =
     query.sortBy === undefined
       ? undefined
