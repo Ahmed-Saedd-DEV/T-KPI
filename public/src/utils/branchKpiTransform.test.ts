@@ -128,6 +128,58 @@ test('builds dynamic chart geometry from actual measurements and keeps only the 
   assert.ok(chart.bars.length === 7);
 });
 
+test('keeps the default last-seven behavior while supporting an explicit all-history mode', () => {
+  const records = [
+    { metricDate: '2026-09-01', opsCR: 10 },
+    { metricDate: '2026-09-02', opsCR: 9 },
+    { metricDate: '2026-09-03', opsCR: 8 },
+    { metricDate: '2026-09-04', opsCR: 7 },
+    { metricDate: '2026-09-05', opsCR: 6 },
+    { metricDate: '2026-09-06', opsCR: 5 },
+    { metricDate: '2026-09-07', opsCR: 4 },
+    { metricDate: '2026-09-08', opsCR: 3 },
+    { metricDate: '2026-09-09', opsCR: 2 },
+    { metricDate: '2026-09-10', opsCR: 1 },
+  ];
+
+  const defaultResult = transformBranchKpiRecords(records);
+  const filteredResult = transformBranchKpiRecords(records, { historyMode: 'all' });
+
+  assert.equal(defaultResult.CR.latestValue, 1);
+  assert.equal(defaultResult.CR.history.length, 7);
+  assert.deepEqual(defaultResult.CR.history.map((entry) => entry.date), [
+    '2026-09-04',
+    '2026-09-05',
+    '2026-09-06',
+    '2026-09-07',
+    '2026-09-08',
+    '2026-09-09',
+    '2026-09-10',
+  ]);
+
+  assert.equal(filteredResult.CR.latestValue, 1);
+  assert.equal(filteredResult.CR.history.length, 10);
+  assert.deepEqual(filteredResult.CR.history.map((entry) => entry.date), [
+    '2026-09-01',
+    '2026-09-02',
+    '2026-09-03',
+    '2026-09-04',
+    '2026-09-05',
+    '2026-09-06',
+    '2026-09-07',
+    '2026-09-08',
+    '2026-09-09',
+    '2026-09-10',
+  ]);
+
+  const defaultChart = buildChartGeometry(defaultResult.CR.history, '%');
+  const filteredChart = buildChartGeometry(filteredResult.CR.history, '%', { historyMode: 'all' });
+
+  assert.equal(defaultChart.coords.length, 7);
+  assert.equal(filteredChart.coords.length, 10);
+  assert.equal(filteredChart.latestDate, '2026-09-10');
+});
+
 test('keeps zero, decimal, negative, and extreme values valid for SVG chart generation', () => {
   const zeroChart = buildChartGeometry([
     { date: '2026-09-01', value: 0 },

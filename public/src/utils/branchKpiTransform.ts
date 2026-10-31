@@ -21,6 +21,12 @@ export interface BranchKpiTransformState {
   history: BranchKpiHistoryEntry[];
 }
 
+export type BranchKpiHistoryMode = 'latest-seven' | 'all';
+
+export interface BranchKpiTransformOptions {
+  historyMode?: BranchKpiHistoryMode;
+}
+
 const KPI_FIELD_MAP: Record<BranchKpiKey, keyof BranchMetricRecord> = {
   CR: 'opsCR',
   PREP: 'prepTime',
@@ -100,6 +106,13 @@ function getHistoryForKpi(records: BranchMetricRecord[], key: BranchKpiKey): Bra
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function applyHistoryMode(
+  history: BranchKpiHistoryEntry[],
+  mode: BranchKpiHistoryMode = 'latest-seven',
+): BranchKpiHistoryEntry[] {
+  return mode === 'all' ? history : history.slice(-7);
+}
+
 export function extractBranchMetricRecords(
   payload: unknown,
 ): BranchMetricRecord[] | null {
@@ -125,6 +138,7 @@ export function extractBranchMetricRecords(
 
 export function transformBranchKpiRecords(
   records: BranchMetricRecord[],
+  options: BranchKpiTransformOptions = {},
 ): Record<BranchKpiKey, BranchKpiTransformState> {
   const safeRecords = Array.isArray(records) ? [...records] : [];
   const orderedRecords = safeRecords
@@ -145,6 +159,7 @@ export function transformBranchKpiRecords(
 
       return left.localeCompare(right);
     });
+  const historyMode = options.historyMode ?? 'latest-seven';
 
   const result = {
     CR: { ...EMPTY_KPI_STATE },
@@ -163,12 +178,12 @@ export function transformBranchKpiRecords(
     }
 
     const latestEntry = history[history.length - 1];
-    const recentHistory = history.slice(-7);
+    const visibleHistory = applyHistoryMode(history, historyMode);
 
     result[key] = {
       latestValue: latestEntry.value,
       latestDate: latestEntry.date,
-      history: recentHistory,
+      history: visibleHistory,
     };
   }
 

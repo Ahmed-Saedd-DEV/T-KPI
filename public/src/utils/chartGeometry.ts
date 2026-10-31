@@ -14,6 +14,12 @@ export interface GeneratedChartGeometry {
   latestDate: string | null;
 }
 
+export type ChartHistoryMode = 'latest-seven' | 'all';
+
+export interface ChartGeometryOptions {
+  historyMode?: ChartHistoryMode;
+}
+
 function formatDateLabel(date: string): string {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) {
@@ -45,7 +51,10 @@ function formatMetricValue(value: number, unit: string): string {
 
 export function sanitizeChartHistory(
   historyData: Array<ChartHistoryDatum> = [],
+  options: ChartGeometryOptions = {},
 ): ChartHistoryDatum[] {
+  const historyMode = options.historyMode ?? 'latest-seven';
+
   return [...historyData]
     .filter(
       (entry): entry is ChartHistoryDatum =>
@@ -55,14 +64,15 @@ export function sanitizeChartHistory(
         && Number.isFinite(entry.value),
     )
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-7);
+    .slice(historyMode === 'all' ? 0 : -7);
 }
 
 export function buildChartGeometry(
   historyData: Array<ChartHistoryDatum> = [],
   unit: string = '',
+  options: ChartGeometryOptions = {},
 ): GeneratedChartGeometry {
-  const chartData = sanitizeChartHistory(historyData);
+  const chartData = sanitizeChartHistory(historyData, options);
 
   if (chartData.length === 0) {
     return {

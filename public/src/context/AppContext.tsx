@@ -229,7 +229,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       const { data } = await apiClient.get<unknown>("/admin/metrics/daily");
-
       const records = extractBranchMetricRecords(data);
 
       if (requestId !== latestBranchMetricRequestRef.current) {
@@ -245,6 +244,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       if (records === null) {
         const message =
           "Malformed branch KPI response: expected a raw metric array.";
+
         if (lastConfirmedBranchSnapshotRef.current) {
           setBranchKpis(lastConfirmedBranchSnapshotRef.current);
           setBranchKpisStatus("stale");
@@ -278,7 +278,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const nextSnapshot = buildBranchKpiRuntimeSnapshot(
         INITIAL_BRANCH_KPIS,
-        transformBranchKpiRecords(records),
+        transformBranchKpiRecords(records, { historyMode: "latest-seven" }),
       );
 
       if (records.length === 0) {

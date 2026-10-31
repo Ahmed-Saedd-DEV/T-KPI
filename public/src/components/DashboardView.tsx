@@ -14,9 +14,6 @@ export const DashboardView: React.FC = () => {
     currentUser,
     logout,
   } = useApp();
-  const [leaderboardState, setLeaderboardState] = useState<
-    "normal" | "loading" | "empty" | "error"
-  >("normal");
   const [utcTime, setUtcTime] = useState<string>("");
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
@@ -219,198 +216,100 @@ export const DashboardView: React.FC = () => {
                     </span>
                   </div>
                 </div>
-
-                {/* State Toggle Tabs */}
-                <div
-                  className="flex items-center bg-[#0F172A] p-0.5 rounded-lg border border-[#1E293B]"
-                  role="group"
-                >
-                  {(["normal", "loading", "empty", "error"] as const).map(
-                    (st) => (
-                      <button
-                        key={st}
-                        onClick={() => setLeaderboardState(st)}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors capitalize ${
-                          leaderboardState === st
-                            ? "text-[#38BDF8] bg-[#1E293B]"
-                            : "text-[#94A3B8] hover:text-[#F1F5F9]"
-                        }`}
-                      >
-                        {st === "normal"
-                          ? "Active"
-                          : st === "loading"
-                            ? "Skeleton"
-                            : st}
-                      </button>
-                    ),
-                  )}
-                </div>
               </div>
 
-              {/* State: Active Leaderboard */}
-              {leaderboardState === "normal" && (
-                <div className="divide-y divide-[#1E293B]">
-                  {top3.map((picker, idx) => {
-                    const medalColor =
-                      idx === 0
+              <div className="divide-y divide-[#1E293B]">
+                {top3.map((picker, idx) => {
+                  const medalColor =
+                    idx === 0
+                      ? {
+                          bg: "bg-[#FDE047]/10",
+                          border: "border-[#FDE047]/30",
+                          text: "text-[#FDE047]",
+                        }
+                      : idx === 1
                         ? {
-                            bg: "bg-[#FDE047]/10",
-                            border: "border-[#FDE047]/30",
-                            text: "text-[#FDE047]",
+                            bg: "bg-[#E2E8F0]/10",
+                            border: "border-[#E2E8F0]/30",
+                            text: "text-[#E2E8F0]",
                           }
-                        : idx === 1
-                          ? {
-                              bg: "bg-[#E2E8F0]/10",
-                              border: "border-[#E2E8F0]/30",
-                              text: "text-[#E2E8F0]",
-                            }
-                          : {
-                              bg: "bg-[#FB923C]/10",
-                              border: "border-[#FB923C]/30",
-                              text: "text-[#FB923C]",
-                            };
+                        : {
+                            bg: "bg-[#FB923C]/10",
+                            border: "border-[#FB923C]/30",
+                            text: "text-[#FB923C]",
+                          };
 
-                    return (
-                      <div
-                        key={picker.id}
-                        onClick={() => setSelectedTelemetryPicker(picker)}
-                        className="p-4 hover:bg-[#1B2940]/50 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <div
-                            className={`shrink-0 w-9 h-9 rounded-lg ${medalColor.bg} border ${medalColor.border} flex items-center justify-center ${medalColor.text}`}
-                          >
-                            <span
-                              className="material-symbols-outlined text-[18px]"
-                              style={{ fontVariationSettings: "'FILL' 1" }}
-                            >
-                              military_tech
-                            </span>
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-[#F1F5F9] group-hover:text-[#38BDF8] transition-colors truncate">
-                                {picker.name}
-                              </span>
-                              <span
-                                className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${medalColor.bg} ${medalColor.text} border ${medalColor.border}`}
-                              >
-                                #{idx + 1}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-[#94A3B8] mt-0.5">
-                              <span className="font-mono text-[11px] text-[#64748B]">
-                                ID: {picker.id}
-                              </span>
-                              <span className="text-[#334155]">•</span>
-                              <span>{picker.zone.split("·")[0].trim()}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 shrink-0">
-                          <div className="text-right">
-                            <span className="block text-[11px] text-[#64748B] font-medium">
-                              Orders
-                            </span>
-                            <span className="text-sm font-semibold text-[#F1F5F9] tabular-nums">
-                              {picker.orders}
-                            </span>
-                          </div>
-                          <div className="text-right min-w-[62px]">
-                            <span className="block text-[11px] text-[#64748B] font-medium">
-                              Performance
-                            </span>
-                            <div className="flex items-center justify-end gap-1.5">
-                              <span
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: picker.tierColor }}
-                              ></span>
-                              <span
-                                className="text-base font-bold tabular-nums"
-                                style={{ color: picker.tierColor }}
-                              >
-                                {picker.velocityScore === null
-                                  ? "N/A"
-                                  : `${picker.velocityScore}%`}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* State: Skeleton */}
-              {leaderboardState === "loading" && (
-                <div className="divide-y divide-[#1E293B]">
-                  {[1, 2, 3].map((n) => (
+                  return (
                     <div
-                      key={n}
-                      className="p-4 flex items-center justify-between animate-pulse"
+                      key={picker.id}
+                      onClick={() => setSelectedTelemetryPicker(picker)}
+                      className="p-4 hover:bg-[#1B2940]/50 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-[#1E293B]"></div>
-                        <div className="space-y-1.5">
-                          <div className="w-28 h-4 rounded bg-[#1E293B]"></div>
-                          <div className="w-20 h-3 rounded bg-[#1E293B]/60"></div>
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div
+                          className={`shrink-0 w-9 h-9 rounded-lg ${medalColor.bg} border ${medalColor.border} flex items-center justify-center ${medalColor.text}`}
+                        >
+                          <span
+                            className="material-symbols-outlined text-[18px]"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                          >
+                            military_tech
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-[#F1F5F9] group-hover:text-[#38BDF8] transition-colors truncate">
+                              {picker.name}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${medalColor.bg} ${medalColor.text} border ${medalColor.border}`}
+                            >
+                              #{idx + 1}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-[#94A3B8] mt-0.5">
+                            <span className="font-mono text-[11px] text-[#64748B]">
+                              ID: {picker.id}
+                            </span>
+                            <span className="text-[#334155]">•</span>
+                            <span>{picker.zone.split("·")[0].trim()}</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-4 rounded bg-[#1E293B]"></div>
-                        <div className="w-14 h-5 rounded bg-[#1E293B]"></div>
+
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right">
+                          <span className="block text-[11px] text-[#64748B] font-medium">
+                            Orders
+                          </span>
+                          <span className="text-sm font-semibold text-[#F1F5F9] tabular-nums">
+                            {picker.orders}
+                          </span>
+                        </div>
+                        <div className="text-right min-w-[62px]">
+                          <span className="block text-[11px] text-[#64748B] font-medium">
+                            Performance
+                          </span>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: picker.tierColor }}
+                            ></span>
+                            <span
+                              className="text-base font-bold tabular-nums"
+                              style={{ color: picker.tierColor }}
+                            >
+                              {picker.velocityScore === null
+                                ? "N/A"
+                                : `${picker.velocityScore}%`}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* State: Empty */}
-              {leaderboardState === "empty" && (
-                <div className="py-12 px-4 text-center">
-                  <div className="w-10 h-10 rounded-full bg-[#1B2940] flex items-center justify-center text-[#64748B] mx-auto mb-2">
-                    <span className="material-symbols-outlined text-[20px]">
-                      leaderboard
-                    </span>
-                  </div>
-                  <p className="text-sm font-semibold text-[#F1F5F9]">
-                    No Pick Records Detected
-                  </p>
-                  <p className="text-xs text-[#94A3B8] max-w-xs mx-auto mt-1">
-                    Shift in progress. Telemetry data will aggregate
-                    automatically once initial picks are recorded.
-                  </p>
-                </div>
-              )}
-
-              {/* State: Error */}
-              {leaderboardState === "error" && (
-                <div className="py-10 px-4 text-center">
-                  <div className="w-10 h-10 rounded-full bg-red-950/60 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto mb-2">
-                    <span className="material-symbols-outlined text-[20px]">
-                      sync_problem
-                    </span>
-                  </div>
-                  <p className="text-sm font-semibold text-red-300">
-                    Feed Interruption
-                  </p>
-                  <p className="text-xs text-[#94A3B8] max-w-xs mx-auto mt-1">
-                    Unable to query warehouse floor stream. Please re-establish
-                    telemetry connection.
-                  </p>
-                  <button
-                    onClick={() => setLeaderboardState("normal")}
-                    className="mt-3 px-3 py-1 bg-[#1E293B] hover:bg-[#334155] border border-[#1E293B] rounded text-xs font-medium text-[#F1F5F9] transition-colors inline-flex items-center gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">
-                      refresh
-                    </span>
-                    Retry
-                  </button>
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
 
             {/* Footer Summary */}

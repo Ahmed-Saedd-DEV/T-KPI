@@ -1,7 +1,16 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import apiClient from "../api/client";
 import { useApp } from "../context/AppContext";
-import { BranchKpiKey } from "../types";
+import { INITIAL_BRANCH_KPIS } from "../data/initialData";
+import { BranchKpiConfig, BranchKpiKey } from "../types";
+import {
+  buildBranchKpiRuntimeSnapshot,
+  buildNoDataBranchKpiSnapshot,
+  extractBranchMetricRecords,
+  transformBranchKpiRecords,
+} from "../utils/branchKpiTransform";
 import { buildChartGeometry } from "../utils/chartGeometry";
+import SmartDatePicker from "./SmartDatePicker";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -22,13 +31,78 @@ export const BranchKpisView: React.FC = () => {
     x: number;
     y: number;
   } | null>(null);
-  const chartAreaRef = useRef<HTMLDivElement | null>(null);
-
-  const currentCfg = branchKpis[activeKpiKey];
-  const chartGeometry = useMemo(
-    () => buildChartGeometry(currentCfg.historyData ?? [], currentCfg.unit),
-    [currentCfg.historyData, currentCfg.unit],
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [availableDatesLoading, setAvailableDatesLoading] = useState(false);
+  const [availableDatesError, setAvailableDatesError] = useState<string | null>(
+    null,
   );
+  const [draftFromDate, setDraftFromDate] = useState("");
+  const [draftToDate, setDraftToDate] = useState("");
+  const [appliedFromDate, setAppliedFromDate] = useState("");
+  const [appliedToDate, setAppliedToDate] = useState("");
+  const [filteredRangeBranchKpis, setFilteredRangeBranchKpis] =
+    useState<Record<BranchKpiKey, BranchKpiConfig>>(branchKpis);
+  const [filterNotice, setFilterNotice] = useState<string | null>(null);
+  const [isApplyingFilter, setIsApplyingFilter] = useState(false);
+  const chartAreaRef = useRef<HTMLDivElement | null>(null);
+  const availableDatesRequestRef = useRef(0);
+  const rangeRequestRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  const availableDateSet = useMemo(
+    () =>
+      new Set(
+        availableDates.filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)),
+      ),
+    [availableDates],
+  );
+
+  const draftValidationMessage = useMemo(() => {
+    const hasAnyDraftDate = Boolean(draftFromDate || draftToDate);
+    if (!hasAnyDraftDate) {
+      return null;
+    }
+
+    if (!draftFromDate || !draftToDate) {
+      return "Select both dates to apply a filter.";
+    }
+
+    if (
+      !availableDateSet.has(draftFromDate) ||
+      !availableDateSet.has(draftToDate)
+    ) {
+      return "Only available KPI dates can be selected.";
+    }
+
+    if (draftFromDate > draftToDate) {
+      return "From date must be on or before To date.";
+    }
+
+    return null;
+  }, [availableDateSet, draftFromDate, draftToDate]);
+
+  const canApplyDraftRange =
+    !!draftFromDate &&
+    !!draftToDate &&
+    !draftValidationMessage &&
+    availableDateSet.has(draftFromDate) &&
+    availableDateSet.has(draftToDate);
+
+  const activeRangeIsApplied = Boolean(appliedFromDate && appliedToDate);
+  const displayBranchKpis = activeRangeIsApplied
+    ? filteredRangeBranchKpis
+    : branchKpis;
+  const currentCfg = displayBranchKpis[activeKpiKey];
+  const chartGeometry = useMemo(
+    () =>
+      buildChartGeometry(currentCfg.historyData ?? [], currentCfg.unit, {
+        historyMode: activeRangeIsApplied ? "all" : "latest-seven",
+      }),
+    [currentCfg.historyData, currentCfg.unit, activeRangeIsApplied],
+  );
+  const chartTitle = activeRangeIsApplied
+    ? `${currentCfg.label} — ${appliedFromDate} → ${appliedToDate}`
+    : currentCfg.title;
   const tooltipText = activeTooltip || currentCfg.latestTooltip;
   const hasLiveMeasurements =
     currentCfg.historyData !== undefined && currentCfg.historyData.length > 0;
@@ -40,6 +114,7 @@ export const BranchKpisView: React.FC = () => {
     branchKpisStatus === "empty" ||
     branchKpisStatus === "error" ||
     branchKpisStatus === "stale" ||
+    (activeRangeIsApplied && !hasLiveMeasurements) ||
     !hasLiveMeasurements;
 
   const updateTooltipFromPointer = (
@@ -69,8 +144,137 @@ export const BranchKpisView: React.FC = () => {
 
   const handleSelectKpi = (key: BranchKpiKey) => {
     setActiveKpiKey(key);
-    setActiveTooltip(branchKpis[key].latestTooltip);
+    setActiveTooltip(displayBranchKpis[key].latestTooltip);
     setChartTooltip(null);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const requestId = ++availableDatesRequestRef.current;
+
+    const fetchAvailableDates = async () => {
+      setAvailableDatesLoading(true);
+      setAvailableDatesError(null);
+
+      try {
+        const { data } = await apiClient.get<{
+          status?: string;
+          data?: string[];
+        }>("/admin/metrics/daily/available-dates");
+
+        if (!isMounted || requestId !== availableDatesRequestRef.current) {
+          return;
+        }
+
+        const nextDates = Array.isArray(data?.data)
+          ? data.data.filter(
+              (value): value is string =>
+                typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value),
+            )
+          : [];
+
+        setAvailableDates(nextDates);
+      } catch {
+        if (!isMounted || requestId !== availableDatesRequestRef.current) {
+          return;
+        }
+
+        setAvailableDatesError("Unable to load available KPI dates.");
+      } finally {
+        if (isMounted && requestId === availableDatesRequestRef.current) {
+          setAvailableDatesLoading(false);
+        }
+      }
+    };
+
+    void fetchAvailableDates();
+
+    return () => {
+      isMounted = false;
+      availableDatesRequestRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeRangeIsApplied) {
+      setFilteredRangeBranchKpis(branchKpis);
+    }
+  }, [activeRangeIsApplied, branchKpis]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      rangeRequestRef.current += 1;
+    };
+  }, []);
+
+  const handleApplyFilter = async () => {
+    if (!draftFromDate || !draftToDate) {
+      setFilterNotice(null);
+      return;
+    }
+
+    if (!canApplyDraftRange || isApplyingFilter) {
+      setFilterNotice(null);
+      return;
+    }
+
+    const nextRange = { from: draftFromDate, to: draftToDate };
+    const requestId = ++rangeRequestRef.current;
+    setIsApplyingFilter(true);
+    setFilterNotice("Applying selected range...");
+
+    try {
+      const { data } = await apiClient.get<unknown>("/admin/metrics/daily", {
+        params: nextRange,
+      });
+
+      if (!isMountedRef.current || requestId !== rangeRequestRef.current) {
+        return;
+      }
+
+      const records = extractBranchMetricRecords(data);
+      if (records === null) {
+        setFilteredRangeBranchKpis(
+          buildNoDataBranchKpiSnapshot(INITIAL_BRANCH_KPIS),
+        );
+        setFilterNotice("Unable to apply selected range.");
+        return;
+      }
+
+      const nextSnapshot = buildBranchKpiRuntimeSnapshot(
+        INITIAL_BRANCH_KPIS,
+        transformBranchKpiRecords(records, { historyMode: "all" }),
+      );
+
+      setFilteredRangeBranchKpis(nextSnapshot);
+      setAppliedFromDate(nextRange.from);
+      setAppliedToDate(nextRange.to);
+      setFilterNotice("Date range selected");
+    } catch {
+      if (!isMountedRef.current || requestId !== rangeRequestRef.current) {
+        return;
+      }
+
+      setFilterNotice("Unable to apply selected range.");
+    } finally {
+      if (isMountedRef.current && requestId === rangeRequestRef.current) {
+        setIsApplyingFilter(false);
+      }
+    }
+  };
+
+  const handleClearFilter = () => {
+    if (isApplyingFilter) {
+      return;
+    }
+
+    setDraftFromDate("");
+    setDraftToDate("");
+    setAppliedFromDate("");
+    setAppliedToDate("");
+    setFilteredRangeBranchKpis(branchKpis);
+    setFilterNotice(null);
   };
 
   return (
@@ -149,6 +353,93 @@ export const BranchKpisView: React.FC = () => {
           </div>
         )}
 
+        <section className="rounded-xl border border-[#1E293B] bg-[#0d1c2d] p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-[#F8FAFC]">
+                Date range filter
+              </h2>
+              <p className="mt-1 text-xs text-[#94A3B8]">
+                Select saved Branch KPI dates for local review.
+              </p>
+            </div>
+            {appliedFromDate && appliedToDate ? (
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#38BDF8]/30 bg-[#38BDF8]/10 px-2.5 py-1 text-xs font-mono text-[#38BDF8]">
+                <span className="material-symbols-outlined text-sm">
+                  calendar_month
+                </span>
+                <span>
+                  {appliedFromDate} → {appliedToDate}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end">
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-mono uppercase tracking-[0.12em] text-[#94A3B8]">
+                From Date
+              </label>
+              <SmartDatePicker
+                availableDates={availableDates}
+                selectedDate={draftFromDate}
+                onChange={setDraftFromDate}
+                disabled={availableDatesLoading}
+                loading={availableDatesLoading}
+                placeholder="Select from date"
+                ariaLabel="From date"
+              />
+            </div>
+
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-mono uppercase tracking-[0.12em] text-[#94A3B8]">
+                To Date
+              </label>
+              <SmartDatePicker
+                availableDates={availableDates}
+                selectedDate={draftToDate}
+                onChange={setDraftToDate}
+                disabled={availableDatesLoading}
+                loading={availableDatesLoading}
+                placeholder="Select to date"
+                ariaLabel="To date"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleApplyFilter}
+              disabled={!canApplyDraftRange || isApplyingFilter}
+              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-[#38BDF8] px-4 py-2 text-sm font-semibold text-[#082F49] transition-colors hover:bg-[#7DD3FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38BDF8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F172A] disabled:cursor-not-allowed disabled:bg-[#1E293B] disabled:text-[#64748B]"
+            >
+              Apply Filter
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClearFilter}
+              disabled={isApplyingFilter}
+              className="inline-flex h-[42px] items-center justify-center rounded-lg border border-[#1E293B] bg-[#151F32] px-4 py-2 text-sm font-semibold text-[#E2E8F0] transition-colors hover:border-[#334155] hover:text-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38BDF8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F172A] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Clear Filter
+            </button>
+          </div>
+
+          {availableDatesError ? (
+            <p className="mt-3 text-sm text-red-300">{availableDatesError}</p>
+          ) : null}
+
+          {draftValidationMessage ? (
+            <p className="mt-3 text-sm text-amber-300" role="alert">
+              {draftValidationMessage}
+            </p>
+          ) : null}
+
+          {filterNotice ? (
+            <p className="mt-3 text-sm text-[#38BDF8]">{filterNotice}</p>
+          ) : null}
+        </section>
+
         {/* 6 KPI Cards in Exact Sequence: CR, PREP, ORDER, ATVENDOR, Adjust, Dispatch */}
         <section aria-label="Branch Key Performance Indicators">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -162,7 +453,7 @@ export const BranchKpisView: React.FC = () => {
                 "Dispatch",
               ] as BranchKpiKey[]
             ).map((kpiKey) => {
-              const kpi = branchKpis[kpiKey];
+              const kpi = displayBranchKpis[kpiKey];
               const isSelected = activeKpiKey === kpiKey;
               return (
                 <button
@@ -210,7 +501,7 @@ export const BranchKpisView: React.FC = () => {
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-3 min-w-0">
                 <h2 className="text-xl font-bold text-[#F8FAFC] tracking-tight">
-                  {currentCfg.title}
+                  {chartTitle}
                 </h2>
 
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-mono font-semibold bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/30 shrink-0">
@@ -240,7 +531,7 @@ export const BranchKpisView: React.FC = () => {
                   "Dispatch",
                 ] as BranchKpiKey[]
               ).map((kpiKey) => {
-                const kpi = branchKpis[kpiKey];
+                const kpi = displayBranchKpis[kpiKey];
                 const isSelected = activeKpiKey === kpiKey;
                 const chartTypeLabel = kpi.type === "line" ? "Line" : "Bar";
                 return (
@@ -276,21 +567,25 @@ export const BranchKpisView: React.FC = () => {
                   <div className="text-sm font-semibold text-[#F8FAFC] mb-1">
                     {branchKpisStatus === "loading"
                       ? "Loading KPI data..."
-                      : branchKpisStatus === "empty" ||
-                          currentCfg.currentValue === "N/A"
-                        ? "No data"
-                        : branchKpisStatus === "error"
-                          ? "Unable to load KPI data"
-                          : branchKpisStatus === "stale"
-                            ? "Stale Data"
-                            : "No data"}
+                      : activeRangeIsApplied && !hasLiveMeasurements
+                        ? "No measurements in selected period"
+                        : branchKpisStatus === "empty" ||
+                            currentCfg.currentValue === "N/A"
+                          ? "No data"
+                          : branchKpisStatus === "error"
+                            ? "Unable to load KPI data"
+                            : branchKpisStatus === "stale"
+                              ? "Stale Data"
+                              : "No data"}
                   </div>
                   <div className="text-xs text-[#94A3B8]">
                     {branchKpisStatus === "loading"
                       ? "Fetching the latest branch measurements."
                       : branchKpisStatus === "stale"
                         ? "Showing the last confirmed backend snapshot."
-                        : "Trend chart unavailable until live measurements are available."}
+                        : activeRangeIsApplied && !hasLiveMeasurements
+                          ? "The selected date range returned no recorded measurements."
+                          : "Trend chart unavailable until live measurements are available."}
                   </div>
                 </div>
               </div>
