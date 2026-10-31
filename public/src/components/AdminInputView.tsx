@@ -1,7 +1,8 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { BranchKpiKey } from "../types";
 import apiClient from "../api/client";
+import SmartDatePicker from "./SmartDatePicker";
 import {
   KPI_TO_BACKEND,
   buildCreateMetricPayload,
@@ -123,6 +124,10 @@ export const AdminInputView: React.FC = () => {
   const [editDate, setEditDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  const [editAvailableDates, setEditAvailableDates] = useState<string[]>([]);
+  const [editDatesLoading, setEditDatesLoading] = useState(false);
+  const [editDatesError, setEditDatesError] = useState<string | null>(null);
+  const [editDatesInfo, setEditDatesInfo] = useState<string | null>(null);
   const [editKpiKey, setEditKpiKey] = useState<BranchKpiKey>("CR");
   const [editCurrentValue, setEditCurrentValue] = useState<string>("—");
   const [editProposedValue, setEditProposedValue] = useState("");
@@ -134,12 +139,72 @@ export const AdminInputView: React.FC = () => {
   const [editSaving, setEditSaving] = useState(false);
   const activeSubmitRef = useRef(0);
   const editTargetRequestRef = useRef(0);
+  const editDatesRequestRef = useRef(0);
 
   const invalidateEditConfirmation = () => {
     setEditConfirmVisible(false);
     setEditConfirmation(null);
     setEditStatusError(null);
   };
+
+  const fetchAvailableEditDates = async () => {
+    const requestId = ++editDatesRequestRef.current;
+    setEditDatesLoading(true);
+    setEditDatesError(null);
+    setEditDatesInfo(null);
+
+    try {
+      const { data } = await apiClient.get<{ status: string; data: string[] }>(
+        "/admin/metrics/daily/available-dates",
+      );
+
+      if (requestId !== editDatesRequestRef.current) {
+        return;
+      }
+
+      const nextDates = Array.isArray(data?.data)
+        ? data.data.filter(
+            (value): value is string => typeof value === "string",
+          )
+        : [];
+      setEditAvailableDates(nextDates);
+
+      if (
+        adminInputMode === "edit" &&
+        editDate &&
+        !nextDates.includes(editDate)
+      ) {
+        setEditDate("");
+        setEditCurrentValue("—");
+        setEditProposedValue("");
+        setEditConfirmVisible(false);
+        setEditConfirmation(null);
+        setEditStatusError(null);
+        setEditDatesInfo(
+          "Selected date is no longer available. Choose another saved KPI date.",
+        );
+      }
+    } catch (err: unknown) {
+      if (requestId !== editDatesRequestRef.current) {
+        return;
+      }
+
+      const classified = classifyAdminMetricError(err);
+      setEditDatesError(
+        classified.message || "Could not load available KPI dates.",
+      );
+    } finally {
+      if (requestId === editDatesRequestRef.current) {
+        setEditDatesLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === "kpi") {
+      void fetchAvailableEditDates();
+    }
+  }, [activeSubTab, adminInputMode]);
 
   const handleKpiValueChange = (key: BranchKpiKey, val: string) => {
     setFormValues((prev) => ({ ...prev, [key]: val }));
@@ -170,9 +235,9 @@ export const AdminInputView: React.FC = () => {
           requestId,
           editTargetRequestRef.current,
           nextDate,
-          editDate,
+          nextDate,
           nextKey,
-          editKpiKey,
+          nextKey,
         )
       ) {
         return;
@@ -190,9 +255,9 @@ export const AdminInputView: React.FC = () => {
           requestId,
           editTargetRequestRef.current,
           nextDate,
-          editDate,
+          nextDate,
           nextKey,
-          editKpiKey,
+          nextKey,
         )
       ) {
         return;
@@ -207,11 +272,7 @@ export const AdminInputView: React.FC = () => {
           : classified.message,
       );
     } finally {
-      if (
-        requestId === editTargetRequestRef.current &&
-        nextDate === editDate &&
-        nextKey === editKpiKey
-      ) {
+      if (requestId === editTargetRequestRef.current) {
         setEditTargetLoading(false);
       }
     }
@@ -269,6 +330,7 @@ export const AdminInputView: React.FC = () => {
         setLastSavedKpi(key);
         setShowSaveBanner(true);
         setSaveErrors((prev) => ({ ...prev, [key]: "" }));
+        void fetchAvailableEditDates();
       } else {
         setSavedStatuses((prev) => ({ ...prev, [key]: false }));
         setSaveErrors((prev) => ({ ...prev, [key]: outcome.message }));
@@ -348,6 +410,7 @@ export const AdminInputView: React.FC = () => {
         setEditConfirmation(null);
         setShowSaveBanner(true);
         setLastSavedKpi(snapshot.key);
+        void fetchAvailableEditDates();
       } else {
         setEditStatusError(outcome.message);
         setEditConfirmVisible(false);
@@ -839,6 +902,64 @@ export const AdminInputView: React.FC = () => {
                 </div>
               )}
 
+              {editDatesError && (
+                <div className="bg-[#151F32] border border-[#F87171]/35 rounded-xl p-4 flex items-start justify-between relative overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#F87171]"></div>
+                  <div className="flex items-start gap-3.5 pl-1">
+                    <div className="w-9 h-9 rounded-lg bg-[#F87171]/10 text-[#F87171] flex items-center justify-center shrink-0 border border-[#F87171]/25">
+                      <span className="material-symbols-outlined text-[20px]">
+                        error
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">
+                        Saved KPI dates unavailable
+                      </h4>
+                      <p className="text-xs text-[#94A3B8] mt-1">
+                        {editDatesError}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEditDatesError(null)}
+                    className="text-[#64748B] hover:text-white p-1 rounded cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      close
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {editDatesInfo && (
+                <div className="bg-[#151F32] border border-[#38BDF8]/35 rounded-xl p-4 flex items-start justify-between relative overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#38BDF8]"></div>
+                  <div className="flex items-start gap-3.5 pl-1">
+                    <div className="w-9 h-9 rounded-lg bg-[#38BDF8]/10 text-[#38BDF8] flex items-center justify-center shrink-0 border border-[#38BDF8]/25">
+                      <span className="material-symbols-outlined text-[20px]">
+                        info
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">
+                        Date selection updated
+                      </h4>
+                      <p className="text-xs text-[#94A3B8] mt-1">
+                        {editDatesInfo}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEditDatesInfo(null)}
+                    className="text-[#64748B] hover:text-white p-1 rounded cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      close
+                    </span>
+                  </button>
+                </div>
+              )}
+
               {editStatusError && (
                 <div className="bg-[#151F32] border border-[#F87171]/35 rounded-xl p-4 flex items-start justify-between relative overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#F87171]"></div>
@@ -884,25 +1005,34 @@ export const AdminInputView: React.FC = () => {
                           : "Edit Date:"}
                       </span>
                     </label>
-                    <input
-                      id="shared-kpi-date-input"
-                      type="date"
-                      required
-                      value={
-                        adminInputMode === "create" ? sharedKpiDate : editDate
-                      }
-                      onChange={(e) => {
-                        if (adminInputMode === "create") {
-                          setSharedKpiDate(e.target.value);
-                        } else {
-                          const nextDate = e.target.value;
-                          setEditDate(nextDate);
-                          invalidateEditConfirmation();
-                          void handleLoadEditTarget(nextDate, editKpiKey);
-                        }
-                      }}
-                      className="bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white text-xs font-mono font-semibold rounded-lg px-3 py-1.5 outline-none transition-all cursor-pointer"
-                    />
+                    {adminInputMode === "create" ? (
+                      <input
+                        id="shared-kpi-date-input"
+                        type="date"
+                        required
+                        value={sharedKpiDate}
+                        onChange={(e) => setSharedKpiDate(e.target.value)}
+                        className="bg-[#0B1120] border border-[#283953] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] text-white text-xs font-mono font-semibold rounded-lg px-3 py-1.5 outline-none transition-all cursor-pointer"
+                      />
+                    ) : (
+                      <div className="min-w-[220px] max-w-[260px]">
+                        <SmartDatePicker
+                          availableDates={editAvailableDates}
+                          selectedDate={editDate}
+                          onChange={(nextDate) => {
+                            setEditDatesInfo(null);
+                            invalidateEditConfirmation();
+                            setEditDate(nextDate);
+                            void handleLoadEditTarget(nextDate, editKpiKey);
+                          }}
+                          disabled={editDatesLoading}
+                          loading={editDatesLoading}
+                          placeholder="Select saved KPI date"
+                          emptyStateMessage="No saved KPI dates available"
+                          ariaLabel="Select a saved KPI date"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="inline-flex rounded-lg border border-[#283953] bg-[#0B1120] p-1">

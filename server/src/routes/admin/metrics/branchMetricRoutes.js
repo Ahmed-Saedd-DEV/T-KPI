@@ -13,12 +13,38 @@ const router = express.Router();
 
 // Public — anyone can read metrics
 router.get("/", metricRangeValidator, branchMetricController.getDailyMetrics);
+router.get("/available-dates", branchMetricController.getAvailableMetricDates);
 router.get("/best", branchMetricController.getBestDay);
 
 // Protected — ADMIN only
-router.post("/", auth, authorize("ADMIN"), metricCreateValidator, branchMetricController.createDailyMetric);
-router.get("/:date", auth, authorize("ADMIN"), metricDateValidator, branchMetricController.getDailyMetricByDate);
-router.patch("/:date", auth, authorize("ADMIN"), metricDateValidator, metricUpdateValidator, branchMetricController.updateDailyMetric);
-router.delete("/:date", auth, authorize("ADMIN"), metricDateValidator, branchMetricController.deleteDailyMetric);
+router.post(
+  "/",
+  auth,
+  authorize("ADMIN"),
+  metricCreateValidator,
+  branchMetricController.createDailyMetric,
+);
+router.get(
+  "/:date",
+  auth,
+  authorize("ADMIN"),
+  metricDateValidator,
+  branchMetricController.getDailyMetricByDate,
+);
+router.patch(
+  "/:date",
+  auth,
+  authorize("ADMIN"),
+  metricDateValidator,
+  metricUpdateValidator,
+  branchMetricController.updateDailyMetric,
+);
+router.delete(
+  "/:date",
+  auth,
+  authorize("ADMIN"),
+  metricDateValidator,
+  branchMetricController.deleteDailyMetric,
+);
 
 module.exports = router;

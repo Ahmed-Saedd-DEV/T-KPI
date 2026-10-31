@@ -114,6 +114,20 @@ function findPerformanceRecordsByEmployeeId(employeeId) {
   });
 }
 
+function getAvailableImportDates() {
+  return prisma.$queryRaw`
+    SELECT DISTINCT TO_CHAR(("createdAt" AT TIME ZONE 'Africa/Cairo'), 'YYYY-MM-DD') AS "date"
+    FROM "ImportBatch"
+    WHERE "status" = 'COMPLETED'
+      AND EXISTS (
+        SELECT 1
+        FROM "EmployeePerformance" ep
+        WHERE ep."importBatchId" = "ImportBatch"."id"
+      )
+    ORDER BY "date" ASC
+  `;
+}
+
 module.exports = {
   findById,
   findByCode,
@@ -126,4 +140,5 @@ module.exports = {
   getEmployeesWithCompletedPerformance,
   getTopEmployeesWithLatestPerformance,
   findPerformanceRecordsByEmployeeId,
+  getAvailableImportDates,
 };

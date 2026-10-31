@@ -15,6 +15,15 @@ async function getEmployees(req, res, next) {
   }
 }
 
+async function getAvailableDates(req, res, next) {
+  try {
+    const data = await employeeListService.getAvailableImportDates();
+    res.status(200).json({ status: "success", data });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getTopEmployees(req, res, next) {
   try {
     const result = await employeeListService.getTopEmployees();
@@ -46,6 +55,7 @@ async function getEmployeeByCode(req, res, next) {
 
 module.exports = {
   getEmployees,
+  getAvailableDates,
   getTopEmployees,
   getEmployeeById,
   getEmployeeByCode,

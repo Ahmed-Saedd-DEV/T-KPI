@@ -18,6 +18,15 @@ async function createDailyMetric(req, res, next) {
   }
 }
 
+async function getAvailableMetricDates(req, res, next) {
+  try {
+    const data = await branchMetricService.getAvailableMetricDates();
+    res.status(200).json({ status: "success", data });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getDailyMetrics(req, res, next) {
   try {
     const { from, to } = req.query;
@@ -76,6 +85,7 @@ async function deleteDailyMetric(req, res, next) {
 
 module.exports = {
   createDailyMetric,
+  getAvailableMetricDates,
   getDailyMetrics,
   getBestDay,
   getDailyMetricByDate,

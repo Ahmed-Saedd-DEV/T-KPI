@@ -178,6 +178,30 @@ function getLatestSelectedPerformance(
   return selected[0];
 }
 
+function normalizeAvailableDateList(values = []) {
+  return Array.from(
+    new Set(
+      (values || [])
+        .map((entry) => {
+          const rawValue =
+            typeof entry === "string"
+              ? entry
+              : entry && typeof entry === "object"
+                ? (entry.date ?? entry.metricDate ?? entry.createdDate ?? "")
+                : "";
+          const normalized = String(rawValue).trim();
+          return normalized.length >= 10 ? normalized.slice(0, 10) : "";
+        })
+        .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+async function getAvailableImportDates() {
+  const rows = await employeeRepository.getAvailableImportDates();
+  return normalizeAvailableDateList(rows);
+}
+
 async function getEmployeeList(query = {}) {
   const page = query.page === undefined ? 1 : Number(query.page);
   const limit = query.limit === undefined ? 20 : Number(query.limit);
@@ -330,4 +354,13 @@ async function getTopEmployees() {
   };
 }
 
-module.exports = { getEmployeeList, getTopEmployees };
+module.exports = {
+  getEmployeeList,
+  getTopEmployees,
+  getAvailableImportDates,
+  getLatestCompletedBatchId,
+  getLatestSelectedPerformance,
+  getCairoDateRange,
+  isWithinCairoDate,
+  convertCairoLocalDateTimeToUtc,
+};

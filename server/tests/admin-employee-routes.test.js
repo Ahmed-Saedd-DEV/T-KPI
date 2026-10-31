@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const prisma = require("../src/prisma/prismaClient");
 const adminEmployeeRoutes = require("../src/routes/admin/employees/employeeAdminRoutes");
 const employeeRoutes = require("../src/routes/employees/employeeRoutes");
+const branchMetricRoutes = require("../src/routes/admin/metrics/branchMetricRoutes");
 const errorHandler = require("../src/middleware/errorHandler");
 
 const originalJwtSecret = process.env.JWT_SECRET;
@@ -20,6 +21,7 @@ const originalEmployeePerformanceDeleteMany =
   prisma.employeePerformance.deleteMany.bind(prisma.employeePerformance);
 const originalAuditLogCreate = prisma.auditLog.create.bind(prisma.auditLog);
 const originalTransaction = prisma.$transaction.bind(prisma);
+const originalQueryRaw = prisma.$queryRaw.bind(prisma);
 
 function makeToken(userId) {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET, {
@@ -32,6 +34,7 @@ function buildApp() {
   const app = express();
   app.use(express.json());
   app.use("/admin", adminEmployeeRoutes);
+  app.use("/admin/metrics/daily", branchMetricRoutes);
   app.use("/employees", employeeRoutes);
   app.use(errorHandler);
   return app;
@@ -83,6 +86,11 @@ async function request(app, path, { method = "GET", body, headers = {} } = {}) {
 
 test.beforeEach(() => {
   process.env.JWT_SECRET = "1234567890abcdefghijklmnopqrstuvwxyz1234567890";
+  prisma.$queryRaw = async () => [
+    { date: "2024-01-03" },
+    { date: "2024-01-01" },
+    { date: "2024-01-01" },
+  ];
   prisma.user.findUnique = async ({ where }) => {
     if (!where || !where.id) {
       return null;
@@ -142,6 +150,27 @@ test.afterEach(() => {
   prisma.employeePerformance.deleteMany = originalEmployeePerformanceDeleteMany;
   prisma.auditLog.create = originalAuditLogCreate;
   prisma.$transaction = originalTransaction;
+  prisma.$queryRaw = originalQueryRaw;
+});
+
+test("GET /employees/available-dates returns deduplicated ascending dates", async () => {
+  const app = buildApp();
+
+  const result = await request(app, "/employees/available-dates");
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.data, ["2024-01-01", "2024-01-03"]);
+  assert.equal(result.body.status, "success");
+});
+
+test("GET /admin/metrics/daily/available-dates returns deduplicated ascending dates", async () => {
+  const app = buildApp();
+
+  const result = await request(app, "/admin/metrics/daily/available-dates");
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.data, ["2024-01-01", "2024-01-03"]);
+  assert.equal(result.body.status, "success");
 });
 
 test("POST /admin/employees rejects missing or invalid bearer tokens", async () => {

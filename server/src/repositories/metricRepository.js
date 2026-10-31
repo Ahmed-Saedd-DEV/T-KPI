@@ -37,4 +37,19 @@ function deleteByDate(metricDate, tx = prisma) {
   return tx.branchDailyMetric.delete({ where: { metricDate } });
 }
 
-module.exports = { findByDate, findAll, create, update, deleteByDate };
+function getAvailableMetricDates() {
+  return prisma.$queryRaw`
+    SELECT DISTINCT TO_CHAR("metricDate", 'YYYY-MM-DD') AS "date"
+    FROM "BranchDailyMetric"
+    ORDER BY "date" ASC
+  `;
+}
+
+module.exports = {
+  findByDate,
+  findAll,
+  create,
+  update,
+  deleteByDate,
+  getAvailableMetricDates,
+};

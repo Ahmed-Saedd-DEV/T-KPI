@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import apiClient from "../api/client";
 import { useApp } from "../context/AppContext";
 import { Picker, PerformanceTier } from "../types";
+import SmartDatePicker from "./SmartDatePicker";
 import {
   mapEmployeeToPicker,
   type BackendEmployee,
@@ -32,8 +33,18 @@ export const PickersView: React.FC = () => {
   const [tableLoading, setTableLoading] = useState(true);
   const [tableError, setTableError] = useState<string | null>(null);
   const [selectedUploadDate, setSelectedUploadDate] = useState("");
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [availableDatesLoading, setAvailableDatesLoading] = useState(true);
+  const [availableDatesError, setAvailableDatesError] = useState<string | null>(
+    null,
+  );
+  const [dateStatusMessage, setDateStatusMessage] = useState<{
+    type: "info" | "error";
+    text: string;
+  } | null>(null);
   const itemsPerPage = 8;
   const tableRequestRef = useRef(0);
+  const availableDatesRequestRef = useRef(0);
   const localRemovedPickerIdsRef = useRef<Set<string>>(new Set());
   const activeTableQueryRef = useRef<{
     mode: "latest-batch" | "upload-date";
@@ -139,10 +150,65 @@ export const PickersView: React.FC = () => {
     }
   };
 
+  const fetchAvailableDates = async () => {
+    const requestId = ++availableDatesRequestRef.current;
+    setAvailableDatesLoading(true);
+    setAvailableDatesError(null);
+    setDateStatusMessage((current) =>
+      current?.type === "error" ? null : current,
+    );
+
+    try {
+      const { data } = await apiClient.get<{
+        status?: string;
+        data?: string[];
+      }>("/employees/available-dates");
+
+      if (requestId !== availableDatesRequestRef.current) {
+        return;
+      }
+
+      const nextDates = Array.isArray(data?.data)
+        ? data.data.filter(
+            (date): date is string =>
+              typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date),
+          )
+        : [];
+
+      setAvailableDates(nextDates);
+
+      if (selectedUploadDate && !nextDates.includes(selectedUploadDate)) {
+        setSelectedUploadDate("");
+        setCurrentPage(1);
+        setDateStatusMessage({
+          type: "info",
+          text: "Selected date is no longer available. Showing the latest completed batch.",
+        });
+        await fetchTablePickers("latest-batch");
+      }
+    } catch {
+      if (requestId !== availableDatesRequestRef.current) {
+        return;
+      }
+
+      setAvailableDatesError("Unable to load available upload dates.");
+      setDateStatusMessage({
+        type: "error",
+        text: "Unable to refresh upload dates. Current selection was preserved.",
+      });
+    } finally {
+      if (requestId === availableDatesRequestRef.current) {
+        setAvailableDatesLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
     void fetchTablePickers("latest-batch");
+    void fetchAvailableDates();
     return () => {
       tableRequestRef.current += 1;
+      availableDatesRequestRef.current += 1;
     };
   }, []);
 
@@ -183,18 +249,17 @@ export const PickersView: React.FC = () => {
     currentPage * itemsPerPage,
   );
 
-  const handleDateChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const nextDate = event.target.value;
+  const handleDateChange = async (nextDate: string) => {
+    setDateStatusMessage(null);
     setSelectedUploadDate(nextDate);
     setCurrentPage(1);
 
     if (nextDate) {
       await fetchTablePickers("upload-date", nextDate);
-    } else {
-      await fetchTablePickers("latest-batch");
+      return;
     }
+
+    await fetchTablePickers("latest-batch");
   };
 
   const handleRegisterPicker = (e: React.FormEvent) => {
@@ -335,16 +400,19 @@ export const PickersView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="relative w-full sm:w-[180px] shrink-0">
+              <div className="relative w-full sm:w-[220px] shrink-0">
                 <label className="sr-only" htmlFor="picker-upload-date">
                   Upload Date
                 </label>
-                <input
-                  id="picker-upload-date"
-                  type="date"
-                  value={selectedUploadDate}
+                <SmartDatePicker
+                  availableDates={availableDates}
+                  selectedDate={selectedUploadDate}
                   onChange={handleDateChange}
-                  className="w-full bg-[#0B1120] border border-[#334155] rounded-lg px-3.5 py-2.5 text-[#F8FAFC] text-xs font-medium focus:outline-none focus:border-[#38BDF8] min-h-[42px]"
+                  loading={availableDatesLoading}
+                  disabled={availableDatesLoading}
+                  ariaLabel="Upload Date"
+                  placeholder="Select date"
+                  emptyStateMessage="No completed upload dates available."
                 />
               </div>
 
@@ -352,6 +420,7 @@ export const PickersView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
+                    setDateStatusMessage(null);
                     setSelectedUploadDate("");
                     setCurrentPage(1);
                     void fetchTablePickers("latest-batch");
@@ -387,6 +456,24 @@ export const PickersView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {dateStatusMessage && (
+            <div
+              className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                dateStatusMessage.type === "info"
+                  ? "border-[#38BDF8]/30 bg-[#0B1120] text-[#7DD3FC]"
+                  : "border-[#F87171]/30 bg-[#1B1B22] text-[#FCA5A5]"
+              }`}
+            >
+              {dateStatusMessage.text}
+            </div>
+          )}
+
+          {availableDatesError && (
+            <div className="mt-3 rounded-lg border border-[#F87171]/30 bg-[#1B1B22] px-3 py-2 text-xs text-[#FCA5A5]">
+              {availableDatesError}
+            </div>
+          )}
 
           <div className="mt-3 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-[#64748B]">
             <span>{filteredPickers.length} pickers found</span>

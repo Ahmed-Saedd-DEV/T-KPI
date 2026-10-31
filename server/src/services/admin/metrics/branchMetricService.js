@@ -144,6 +144,30 @@ async function createDailyMetric(data, actor) {
   return { metric: serializeMetric(metric), created: false };
 }
 
+function normalizeAvailableDateList(values = []) {
+  return Array.from(
+    new Set(
+      (values || [])
+        .map((entry) => {
+          const rawValue =
+            typeof entry === "string"
+              ? entry
+              : entry && typeof entry === "object"
+                ? (entry.date ?? entry.metricDate ?? entry.createdDate ?? "")
+                : "";
+          const normalized = String(rawValue).trim();
+          return normalized.length >= 10 ? normalized.slice(0, 10) : "";
+        })
+        .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+async function getAvailableMetricDates() {
+  const rows = await metricRepository.getAvailableMetricDates();
+  return normalizeAvailableDateList(rows);
+}
+
 async function getDailyMetrics(query = {}) {
   const { from, to } = query;
   const dateRangeFilter = buildDateRangeFilter(from, to);
@@ -358,4 +382,5 @@ module.exports = {
   updateDailyMetric,
   deleteDailyMetric,
   getBestDay,
+  getAvailableMetricDates,
 };
