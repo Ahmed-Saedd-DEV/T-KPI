@@ -73,7 +73,9 @@ export const AdminInputView: React.FC = () => {
   const {
     branchKpis,
     recentUploads,
-    addUploadRecord,
+    recentUploadsLoading,
+    recentUploadsError,
+    fetchRecentUploads,
     currentUser,
     logout,
     fetchMetrics,
@@ -475,9 +477,15 @@ export const AdminInputView: React.FC = () => {
           },
         },
       );
+      const status = String(data?.status ?? "").toUpperCase();
+      if (status === "FAILED") {
+        throw new Error(
+          data?.message ?? "Upload failed. Check the file and try again.",
+        );
+      }
+
       setUploadProgress(100);
-      const count: number = data.imported ?? data.count ?? data.total ?? 0;
-      addUploadRecord(stagedFileName, stagedFileSize, count);
+      await fetchRecentUploads();
       setShowSuccessBanner(true);
       setStagedFile(null);
       setStagedFileName("");
@@ -486,7 +494,9 @@ export const AdminInputView: React.FC = () => {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Upload failed. Check the file and try again.";
+          ?.message ??
+        (err as Error)?.message ??
+        "Upload failed. Check the file and try again.";
       setUploadError(msg);
       setUploadProgress(0);
     } finally {
@@ -496,7 +506,10 @@ export const AdminInputView: React.FC = () => {
 
   const handleExportAuditLog = () => {
     const logData = recentUploads
-      .map((u) => `${u.timestamp} | ${u.fileName} | ${u.size} | ${u.status}`)
+      .map(
+        (u) =>
+          `${u.timestamp} | ${u.fileName} | ${u.size ?? "Size unavailable"} | ${u.status}`,
+      )
       .join("\n");
     const blob = new Blob([logData], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -506,6 +519,10 @@ export const AdminInputView: React.FC = () => {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  useEffect(() => {
+    void fetchRecentUploads();
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#0B1120]">
@@ -821,7 +838,15 @@ export const AdminInputView: React.FC = () => {
                       </div>
                     </div>
                     <div className="divide-y divide-[#1E2D44] mt-1">
-                      {recentUploads.length === 0 ? (
+                      {recentUploadsLoading ? (
+                        <p className="text-xs text-[#94A3B8] py-6 text-center">
+                          Loading recent uploads...
+                        </p>
+                      ) : recentUploadsError ? (
+                        <p className="text-xs text-[#F87171] py-6 text-center">
+                          {recentUploadsError}
+                        </p>
+                      ) : recentUploads.length === 0 ? (
                         <p className="text-xs text-[#64748B] py-6 text-center">
                           No uploads yet.
                         </p>
@@ -836,7 +861,8 @@ export const AdminInputView: React.FC = () => {
                                 {upload.fileName}
                               </p>
                               <p className="text-[11px] text-[#64748B] tabular-nums mt-0.5">
-                                {upload.timestamp} • {upload.size}
+                                {upload.timestamp}
+                                {upload.size ? ` • ${upload.size}` : ""}
                               </p>
                             </div>
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 shrink-0">

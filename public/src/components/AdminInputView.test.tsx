@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import apiClient from "../api/client";
@@ -64,7 +70,9 @@ describe("AdminInputView Branch KPI edit flow", () => {
     mockUseApp.mockReturnValue({
       branchKpis: {},
       recentUploads: [],
-      addUploadRecord: vi.fn(),
+      recentUploadsLoading: false,
+      recentUploadsError: null,
+      fetchRecentUploads: vi.fn().mockResolvedValue(undefined),
       currentUser: { displayName: "Ops Admin", role: "ADMIN" },
       logout: vi.fn(),
       fetchMetrics: vi.fn().mockResolvedValue({
@@ -132,6 +140,39 @@ describe("AdminInputView Branch KPI edit flow", () => {
       document.querySelectorAll('input[type="number"]'),
     ) as HTMLInputElement[];
     expect(valueInputs.some((input) => input.value === "42")).toBe(true);
+  });
+
+  it("fetches completed recent uploads from the backend and renders them", async () => {
+    const fetchRecentUploads = vi.fn().mockResolvedValue(undefined);
+    mockUseApp.mockReturnValue({
+      branchKpis: {},
+      recentUploads: [
+        {
+          id: "batch-1",
+          fileName: "Batch_2025_01_15.xlsx",
+          timestamp: "15 Jan 2025 10:30",
+          size: "2.1 MB",
+          status: "Success",
+          shiftsCount: 1280,
+        },
+      ],
+      recentUploadsLoading: false,
+      recentUploadsError: null,
+      fetchRecentUploads,
+      currentUser: { displayName: "Ops Admin", role: "ADMIN" },
+      logout: vi.fn(),
+      fetchMetrics: vi.fn().mockResolvedValue({
+        success: true,
+        status: "loaded",
+        empty: false,
+        stale: false,
+      }),
+    } as any);
+
+    render(<AdminInputView />);
+
+    expect(screen.getByText("Batch_2025_01_15.xlsx")).toBeTruthy();
+    expect(fetchRecentUploads).toHaveBeenCalledTimes(1);
   });
 
   it("refreshes available edit dates after a successful Branch KPI create save", async () => {

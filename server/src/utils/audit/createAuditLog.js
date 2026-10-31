@@ -34,7 +34,13 @@ async function createAuditLog({
     await auditRepository.createAuditLog(payload);
     return null;
   } catch (error) {
-    return null;
+    console.error("Audit log write failed", {
+      action,
+      entityType,
+      entityId,
+      error: error && error.message ? error.message : String(error),
+    });
+    throw error;
   }
 }
 

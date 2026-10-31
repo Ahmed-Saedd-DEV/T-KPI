@@ -14,7 +14,7 @@ import {
   PerformanceTier,
   BranchKpiStatus,
 } from "../types";
-import { INITIAL_BRANCH_KPIS, INITIAL_UPLOADS } from "../data/initialData";
+import { INITIAL_BRANCH_KPIS } from "../data/initialData";
 import apiClient from "../api/client";
 import {
   BranchMetricRecord,
@@ -80,11 +80,9 @@ interface AppContextType {
   setActiveKpiKey: (key: BranchKpiKey) => void;
   updateBranchKpi: (key: BranchKpiKey, value: string, date: string) => void;
   recentUploads: RecentUpload[];
-  addUploadRecord: (
-    fileName: string,
-    size: string,
-    shiftsCount: number,
-  ) => void;
+  recentUploadsLoading: boolean;
+  recentUploadsError: string | null;
+  fetchRecentUploads: () => Promise<void>;
   toast: ToastMessage | null;
   showToast: (
     title: string,
@@ -104,6 +102,45 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 const AUTH_SESSION_KEY = "picker-performance-dashboard-session";
+
+const formatUploadTimestamp = (value?: string | null) => {
+  if (!value) return "Unknown time";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatUploadSize = (value?: number | string | null) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return undefined;
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let size = bytes;
+  let index = 0;
+
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index += 1;
+  }
+
+  const precision = size >= 10 || index === 0 ? 0 : 1;
+  return `${size.toFixed(precision)} ${units[index]}`;
+};
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 const readStoredSession = (): AuthSession | null => {
@@ -144,8 +181,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     useState<BranchKpiStatus>("idle");
   const [branchKpisError, setBranchKpisError] = useState<string | null>(null);
   const [activeKpiKey, setActiveKpiKey] = useState<BranchKpiKey>("CR");
-  const [recentUploads, setRecentUploads] =
-    useState<RecentUpload[]>(INITIAL_UPLOADS);
+  const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
+  const [recentUploadsLoading, setRecentUploadsLoading] = useState(false);
+  const [recentUploadsError, setRecentUploadsError] = useState<string | null>(
+    null,
+  );
   const latestBranchMetricRequestRef = useRef(0);
   const lastConfirmedBranchSnapshotRef = useRef<Record<
     BranchKpiKey,
@@ -500,38 +540,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // ── Uploads ──
-  const addUploadRecord = (
-    fileName: string,
-    size: string,
-    shiftsCount: number,
-  ) => {
-    const newRecord: RecentUpload = {
-      id: `up-${Date.now()}`,
-      fileName,
-      timestamp:
-        new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }) +
-        " " +
-        new Date().toLocaleTimeString("en-GB", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      size,
-      status: "Success",
-      shiftsCount,
-    };
+  const fetchRecentUploads = async () => {
+    setRecentUploadsLoading(true);
+    setRecentUploadsError(null);
 
-    setRecentUploads((prev) => [newRecord, ...prev]);
-    showToast(
-      "Upload Successful",
-      `Ingested ${shiftsCount.toLocaleString()} records from ${fileName}.`,
-    );
+    try {
+      const { data } = await apiClient.get<
+        Array<{
+          id?: string;
+          fileName?: string;
+          status?: string;
+          importedAt?: string;
+          createdAt?: string;
+          fileSize?: number | string;
+          size?: number | string;
+          successCount?: number;
+        }>
+      >("/admin/import/batches", {
+        params: { status: "COMPLETED", limit: 10 },
+      });
 
-    // Refresh pickers after successful import
-    fetchPickers();
+      const rows = Array.isArray(data) ? data : [];
+      const nextUploads: RecentUpload[] = rows
+        .filter((row) => row?.status === "COMPLETED")
+        .map(
+          (row): RecentUpload => ({
+            id: String(
+              row.id ?? `batch-${Math.random().toString(36).slice(2)}`,
+            ),
+            fileName: row.fileName ?? "Unknown upload",
+            timestamp: formatUploadTimestamp(row.importedAt ?? row.createdAt),
+            size: formatUploadSize(row.fileSize ?? row.size),
+            status: "Success",
+            shiftsCount:
+              typeof row.successCount === "number" ? row.successCount : 0,
+          }),
+        )
+        .sort((left, right) => {
+          const leftTime = new Date(left.timestamp).getTime();
+          const rightTime = new Date(right.timestamp).getTime();
+          if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+            return 0;
+          }
+          return rightTime - leftTime;
+        });
+
+      setRecentUploads(nextUploads);
+    } catch {
+      setRecentUploads([]);
+      setRecentUploadsError("Unable to load recent uploads.");
+    } finally {
+      setRecentUploadsLoading(false);
+    }
   };
 
   return (
@@ -559,7 +619,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         setActiveKpiKey,
         updateBranchKpi,
         recentUploads,
-        addUploadRecord,
+        recentUploadsLoading,
+        recentUploadsError,
+        fetchRecentUploads,
         toast,
         showToast,
         dismissToast,

@@ -78,7 +78,7 @@ export interface RecentUpload {
   id: string;
   fileName: string;
   timestamp: string;
-  size: string;
+  size?: string;
   status: 'Success' | 'Failed' | 'Processing';
   shiftsCount: number;
 }

@@ -2,12 +2,12 @@
 
 const prisma = require("../prisma/prismaClient");
 
-function createBatch(data) {
-  return prisma.importBatch.create({ data });
+function createBatch(data, tx = prisma) {
+  return tx.importBatch.create({ data });
 }
 
-function updateBatch(id, data) {
-  return prisma.importBatch.update({ where: { id }, data });
+function updateBatch(id, data, tx = prisma) {
+  return tx.importBatch.update({ where: { id }, data });
 }
 
 function findAllBatches(filter = {}, options = {}) {
@@ -34,12 +34,12 @@ function deleteBatch(id, tx) {
   return tx.importBatch.delete({ where: { id } });
 }
 
-function findEmployeeByCode(employeeCode) {
-  return prisma.employee.findUnique({ where: { employeeCode } });
+function findEmployeeByCode(employeeCode, tx = prisma) {
+  return tx.employee.findUnique({ where: { employeeCode } });
 }
 
-function createEmployee(data) {
-  return prisma.employee.create({ data });
+function createEmployee(data, tx = prisma) {
+  return tx.employee.create({ data });
 }
 
 function createPerformance(data, tx = prisma) {
