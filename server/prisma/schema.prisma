@@ -77,7 +77,7 @@ model EmployeePerformance {
   periodStart   DateTime
   periodEnd     DateTime
   orders        Int
-  opsCR         Decimal  @db.Decimal(10, 3)
+  opsCR         Decimal  @db.Decimal(10, 5)
   dispatchTime  Decimal  @db.Decimal(10, 3)
   pickingTime   Decimal  @db.Decimal(10, 3)
   assignmentTime Decimal @db.Decimal(10, 3)

@@ -1,30 +1,35 @@
 "use strict";
 
-const SAFE_ZONE_TARGETS = {
+const KPI_TARGETS = {
   opsCR: 1,
   dispatchTime: 7,
-  pickingTime: 1.7,
-  assignmentTime: 0.3,
   prepTime: 2,
 };
 
-function calculateMetricScore(safeZone, actualValue) {
-  if (!Number.isFinite(actualValue) || actualValue <= 0) {
+function convertOpsCrForScoring(storedOpsCR) {
+  if (!Number.isFinite(storedOpsCR) || storedOpsCR < 0) {
     return null;
   }
 
-  if (!Number.isFinite(safeZone) || safeZone < 0) {
+  return storedOpsCR * 100;
+}
+
+function calculateMetricScore(target, actualValue) {
+  if (!Number.isFinite(actualValue) || actualValue < 0) {
     return null;
   }
 
-  const score = (safeZone / actualValue) * 100;
-  const cappedScore = Math.min(100, score);
-
-  if (!Number.isFinite(cappedScore) || cappedScore < 0) {
+  if (!Number.isFinite(target) || target <= 0) {
     return null;
   }
 
-  return cappedScore;
+  const score = (100 * (4 * target)) / (4 * target + actualValue);
+
+  if (!Number.isFinite(score) || score < 0 || score > 100) {
+    return null;
+  }
+
+  return score;
 }
 
 function calculateKpiScore(metrics) {
@@ -43,38 +48,37 @@ function calculateKpiScore(metrics) {
     };
   }
 
-  const metricKeys = Object.keys(SAFE_ZONE_TARGETS);
-  const validScores = [];
+  const opsCRValue = convertOpsCrForScoring(metrics.opsCR);
+  const dispatchValue = Number(metrics.dispatchTime);
+  const prepValue = Number(metrics.prepTime);
 
-  for (const key of metricKeys) {
-    const safeZone = SAFE_ZONE_TARGETS[key];
-    const actualValue = metrics[key];
+  scores.opsCR = calculateMetricScore(KPI_TARGETS.opsCR, opsCRValue);
+  scores.dispatchTime = calculateMetricScore(
+    KPI_TARGETS.dispatchTime,
+    dispatchValue,
+  );
+  scores.prepTime = calculateMetricScore(KPI_TARGETS.prepTime, prepValue);
 
-    const score = calculateMetricScore(safeZone, actualValue);
-    scores[key] = score;
+  const requiredMetrics = [scores.opsCR, scores.dispatchTime, scores.prepTime];
 
-    if (score !== null) {
-      validScores.push(score);
-    }
-  }
-
-  if (validScores.length === 0) {
+  if (requiredMetrics.some((score) => score === null)) {
     return {
       scores,
       overallScore: null,
     };
   }
 
-  const average =
-    validScores.reduce((sum, value) => sum + value, 0) / validScores.length;
-  const overallScore = Math.round(average * 100) / 100;
+  const overallScore =
+    (scores.opsCR + scores.dispatchTime + scores.prepTime) / 3;
 
   return {
     scores,
-    overallScore,
+    overallScore: Number(overallScore.toFixed(2)),
   };
 }
 
 module.exports = {
   calculateKpiScore,
+  KPI_TARGETS,
+  convertOpsCrForScoring,
 };

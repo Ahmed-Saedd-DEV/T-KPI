@@ -23,7 +23,7 @@ export interface PickerTelemetry {
 export interface Picker {
   id: string; // e.g. "P-1042"
   name: string;
-  velocityScore: number; // e.g. 96
+  velocityScore: number | null; // e.g. 96; null for missing backend KPI
   tier: PerformanceTier;
   tierLabel: string;
   tierColor: string;

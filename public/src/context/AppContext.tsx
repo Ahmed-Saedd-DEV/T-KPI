@@ -23,6 +23,13 @@ import {
   extractBranchMetricRecords,
   transformBranchKpiRecords,
 } from "../utils/branchKpiTransform";
+import {
+  getTier,
+  getTierColor,
+  getTierLabel,
+  mapEmployeeToPicker,
+  type BackendEmployee,
+} from "../utils/pickerPresentation";
 
 interface ToastMessage {
   id: string;
@@ -97,92 +104,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 const AUTH_SESSION_KEY = "picker-performance-dashboard-session";
-
-// ─── Tier helpers ────────────────────────────────────────────────────────────
-function getTier(score: number | null): PerformanceTier {
-  if (score === null) return "low";
-  if (score >= 90) return "excellent";
-  if (score >= 80) return "very_good";
-  if (score >= 70) return "good";
-  if (score >= 60) return "average";
-  if (score >= 50) return "below_average";
-  return "low";
-}
-
-function getTierLabel(tier: PerformanceTier): string {
-  const labels: Record<PerformanceTier, string> = {
-    excellent: "Excellent",
-    very_good: "Very Good",
-    good: "Good",
-    average: "Average",
-    below_average: "Below Avg",
-    low: "Low",
-  };
-  return labels[tier];
-}
-
-function getTierColor(tier: PerformanceTier): string {
-  const colors: Record<PerformanceTier, string> = {
-    excellent: "#22C55E",
-    very_good: "#52e87c",
-    good: "#FDE047",
-    average: "#FBBF24",
-    below_average: "#FB923C",
-    low: "#F87171",
-  };
-  return colors[tier];
-}
-
-// ─── Backend → Picker mapper ──────────────────────────────────────────────────
-interface BackendEmployee {
-  id: string;
-  employeeCode: string;
-  name: string;
-  orders: number | null;
-  metrics: {
-    opsCR: number;
-    dispatchTime: number;
-    pickingTime: number;
-    assignmentTime: number;
-    prepTime: number;
-  } | null;
-  kpi: {
-    overallScore: number | null;
-    scores: Record<string, number | null>;
-  } | null;
-}
-
-function mapEmployeeToPicker(emp: BackendEmployee): Picker {
-  const score = emp.kpi?.overallScore ?? null;
-  const tier = getTier(score);
-  const metrics = emp.metrics;
-
-  const fmtSec = (v: number | undefined) =>
-    v !== undefined ? `${v.toFixed(2)}s` : "—";
-  const fmtMin = (v: number | undefined) =>
-    v !== undefined ? `${Math.floor(v / 60)}m ${Math.round(v % 60)}s` : "—";
-
-  return {
-    id: emp.employeeCode,
-    name: emp.name,
-    velocityScore: score !== null ? Math.round(score) : 0,
-    tier,
-    tierLabel: getTierLabel(tier),
-    tierColor: getTierColor(tier),
-    orders: emp.orders ?? 0,
-    zone: "Warehouse Floor",
-    subBadge: score !== null ? `Score: ${score.toFixed(1)}` : "No data",
-    telemetry: {
-      orders: emp.orders ?? 0,
-      pickingTime: metrics ? fmtMin(metrics.pickingTime) : "—",
-      assignmentTime: metrics ? fmtSec(metrics.assignmentTime) : "—",
-      prepTime: metrics ? fmtSec(metrics.prepTime) : "—",
-      dispatchTime: metrics ? fmtSec(metrics.dispatchTime) : "—",
-      opsCr: metrics ? `${metrics.opsCR.toFixed(2)}%` : "—",
-      detailedZone: "Warehouse Floor",
-    },
-  };
-}
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 const readStoredSession = (): AuthSession | null => {

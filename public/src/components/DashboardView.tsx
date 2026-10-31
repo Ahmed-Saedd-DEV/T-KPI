@@ -330,7 +330,9 @@ export const DashboardView: React.FC = () => {
                                 className="text-base font-bold tabular-nums"
                                 style={{ color: picker.tierColor }}
                               >
-                                {picker.velocityScore}%
+                                {picker.velocityScore === null
+                                  ? "N/A"
+                                  : `${picker.velocityScore}%`}
                               </span>
                             </div>
                           </div>
