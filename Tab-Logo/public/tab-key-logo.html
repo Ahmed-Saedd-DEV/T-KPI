@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Key 3D Logo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@1,900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #0d0f14;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    }
+    .key-wrapper {
+      width: min(85vw, 85vh);
+      max-width: 720px;
+      aspect-ratio: 803 / 810;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+      transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .key-wrapper:active {
+      transform: translate(16px, 18px);
+    }
+    .key-wrapper:active .depth-layer {
+      opacity: 0.15;
+    }
+    svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="key-wrapper" id="tabKey" title="Click or press Tab key">
+    <svg viewBox="0 0 803 810" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- The master keycap silhouette with rounded corners & top-right notch -->
+        <path id="keycap-shape" d="
+          M 264 290
+          L 524 247
+          C 542 245 558 254 564 270
+          L 568 296
+          C 569 306 576 312 586 311
+          L 616 312
+          C 628 312 637 322 638 334
+          L 622 470
+          C 619 492 599 509 572 513
+          L 236 551
+          C 195 556 152 542 148 498
+          L 182 334
+          C 187 308 224 294 264 290 Z
+        " />
+
+        <!-- Inset dark face silhouette -->
+        <path id="keycap-inner" d="
+          M 268 304
+          L 516 263
+          C 530 262 543 268 548 280
+          L 552 305
+          C 553 319 565 328 580 327
+          L 606 328
+          C 615 328 622 335 623 344
+          L 608 459
+          C 606 476 590 491 568 495
+          L 245 531
+          C 211 536 174 524 170 488
+          L 198 343
+          C 202 323 234 308 268 304 Z
+        " />
+      </defs>
+
+      <!-- LAYER 1: Blue 3D Side/Depth Layer (#2b6bff) -->
+      <!-- Seamless 3D extrusion swept along vector dx=+36px, dy=+44px -->
+      <g class="depth-layer" fill="#2b6bff">
+        <use href="#keycap-shape" x="1.0" y="1.2" />
+        <use href="#keycap-shape" x="2.0" y="2.4" />
+        <use href="#keycap-shape" x="3.0" y="3.7" />
+        <use href="#keycap-shape" x="4.0" y="4.9" />
+        <use href="#keycap-shape" x="5.1" y="6.1" />
+        <use href="#keycap-shape" x="6.1" y="7.3" />
+        <use href="#keycap-shape" x="7.1" y="8.6" />
+        <use href="#keycap-shape" x="8.1" y="9.8" />
+        <use href="#keycap-shape" x="9.1" y="11.0" />
+        <use href="#keycap-shape" x="10.1" y="12.2" />
+        <use href="#keycap-shape" x="11.1" y="13.4" />
+        <use href="#keycap-shape" x="12.2" y="14.7" />
+        <use href="#keycap-shape" x="13.2" y="15.9" />
+        <use href="#keycap-shape" x="14.2" y="17.1" />
+        <use href="#keycap-shape" x="15.2" y="18.3" />
+        <use href="#keycap-shape" x="16.2" y="19.6" />
+        <use href="#keycap-shape" x="17.2" y="20.8" />
+        <use href="#keycap-shape" x="18.2" y="22.0" />
+        <use href="#keycap-shape" x="19.3" y="23.2" />
+        <use href="#keycap-shape" x="20.3" y="24.4" />
+        <use href="#keycap-shape" x="21.3" y="25.7" />
+        <use href="#keycap-shape" x="22.3" y="26.9" />
+        <use href="#keycap-shape" x="23.3" y="28.1" />
+        <use href="#keycap-shape" x="24.3" y="29.3" />
+        <use href="#keycap-shape" x="25.3" y="30.6" />
+        <use href="#keycap-shape" x="26.4" y="31.8" />
+        <use href="#keycap-shape" x="27.4" y="33.0" />
+        <use href="#keycap-shape" x="28.4" y="34.2" />
+        <use href="#keycap-shape" x="29.4" y="35.4" />
+        <use href="#keycap-shape" x="30.4" y="36.7" />
+        <use href="#keycap-shape" x="31.4" y="37.9" />
+        <use href="#keycap-shape" x="32.4" y="39.1" />
+        <use href="#keycap-shape" x="33.5" y="40.3" />
+        <use href="#keycap-shape" x="34.5" y="41.6" />
+        <use href="#keycap-shape" x="35.5" y="42.8" />
+        <use href="#keycap-shape" x="36.5" y="44.0" />
+      </g>
+
+      <!-- LAYER 2: White Border Frame Layer (#ffffff) -->
+      <use href="#keycap-shape" fill="#ffffff" />
+
+      <!-- LAYER 3: Dark Face Layer (#111318) -->
+      <use href="#keycap-inner" fill="#111318" />
+
+      <!-- LAYER 4: Typography & Glyph -->
+      <!-- "Tab" text in Nunito Black Italic -->
+      <text x="248" y="458"
+            transform="rotate(-7.4 248 458)"
+            font-family="'Nunito', sans-serif"
+            font-weight="900"
+            font-style="italic"
+            font-size="106"
+            letter-spacing="-1px"
+            fill="#ffffff">Tab</text>
+
+      <!-- Arrow (→) custom thick white arrow with matched line weight & rounded caps -->
+      <g stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Shaft -->
+        <line x1="445" y1="410" x2="538" y2="398" />
+        <!-- Head wings -->
+        <polyline points="509 362, 540 398, 508 436" />
+      </g>
+    </svg>
+  </div>
+
+  <script>
+    // Authentic mechanical keyboard click on Tab key or click
+    const tabKey = document.getElementById('tabKey');
+    let audioCtx = null;
+
+    function playClick() {
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(70, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.06);
+      } catch (e) {}
+    }
+
+    tabKey.addEventListener('click', playClick);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        playClick();
+        tabKey.style.transform = 'translate(16px, 18px)';
+        const depth = tabKey.querySelector('.depth-layer');
+        if (depth) depth.style.opacity = '0.15';
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Tab') {
+        tabKey.style.transform = 'translate(0, 0)';
+        const depth = tabKey.querySelector('.depth-layer');
+        if (depth) depth.style.opacity = '1';
+      }
+    });
+  </script>
+</body>
+</html>

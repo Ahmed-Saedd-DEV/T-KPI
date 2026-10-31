@@ -1,0 +1,6 @@
+{
+  "name": "3D Tab Key Logo",
+  "description": "Pixel-perfect HTML and inline SVG recreation of the iconic 3D Tab key logo with Nunito Black Italic typography and hard-edged isometric blue depth.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
