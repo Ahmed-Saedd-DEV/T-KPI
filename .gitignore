@@ -4,3 +4,11 @@ node_modules/
 !.env.example
 dist/
 coverage/
+
+# Production runtime environment files (contain secrets)
+/.env.production
+/public/.env.production
+/server/.env.production
+
+# Keep safe environment templates tracked
+!.env.production.example
