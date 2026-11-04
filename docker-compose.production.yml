@@ -10,7 +10,7 @@ services:
     volumes:
       - talabat_kpi_postgres_prod:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -U \"$\u0024{POSTGRES_USER}\" -d \"$\u0024{POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -50,6 +50,20 @@ services:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "--url", "http://app:3000"]
+    depends_on:
+      app:
+        condition: service_healthy
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: t-kpi-ngrok
+    restart: unless-stopped
+    env_file:
+      - ./.env.production
+    command:
+      - "http"
+      - "app:3000"
+      - "--url"
+      - "https://jawless-rare-taking.ngrok-free.dev"
     depends_on:
       app:
         condition: service_healthy
