@@ -7,6 +7,9 @@ const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    // ngrok Free may show an HTML browser-warning page without this header.
+    // Sending it on API requests lets the browser receive the actual API response.
+    'ngrok-skip-browser-warning': 'true',
   },
 });
 
